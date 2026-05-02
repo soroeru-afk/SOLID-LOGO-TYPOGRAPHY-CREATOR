@@ -20,7 +20,8 @@ import {
   Grid,
   Maximize2,
   Trash2,
-  AlignLeft, AlignCenter, AlignRight
+  AlignLeft, AlignCenter, AlignRight,
+  BookmarkPlus, Contrast, X, Settings
 } from 'lucide-react';
 
 type AppStatus = 'idle' | 'generating_scene' | 'error';
@@ -116,8 +117,81 @@ function trimCanvas(canvas: HTMLCanvasElement): string {
 }
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'text' | 'style' | '3d'>('text');
+  const [activeTab, setActiveTab] = useState<'text' | 'mark' | 'style' | '3d'>('text');
   
+  // MARK MAKER
+  const [markPrompt, setMarkPrompt] = useState('龍と幾何学模様');
+  const [generatingMarks, setGeneratingMarks] = useState(false);
+  const [generatedMarks, setGeneratedMarks] = useState<string[]>([]);
+  const [stockedMarks, setStockedMarks] = useState<string[]>([]);
+  const [customApiKey, setCustomApiKey] = useState('');
+  const [showApiSettings, setShowApiSettings] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedMarks = localStorage.getItem('solid_typography_stocks');
+      if (storedMarks) setStockedMarks(JSON.parse(storedMarks));
+      const storedKey = localStorage.getItem('solid_typography_apikey');
+      if (storedKey) setCustomApiKey(storedKey);
+    } catch(e) {}
+  }, []);
+
+  const handleCustomApiKey = (val: string) => {
+    setCustomApiKey(val);
+    localStorage.setItem('solid_typography_apikey', val);
+  };
+
+  const handleStockAdd = (base64: string) => {
+    const next = [base64, ...stockedMarks].slice(0, 50);
+    setStockedMarks(next);
+    localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+  };
+
+  const handleStockRemove = (idx: number) => {
+    const next = [...stockedMarks];
+    next.splice(idx, 1);
+    setStockedMarks(next);
+    localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+  };
+
+  const handleInvert = (base64: string, applyToGeneratedIdx?: number, applyToStockIdx?: number) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if(!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0,0,canvas.width, canvas.height);
+      for(let i=0; i<data.data.length; i+=4) {
+        data.data[i] = 255 - data.data[i];
+        data.data[i+1] = 255 - data.data[i+1];
+        data.data[i+2] = 255 - data.data[i+2];
+      }
+      ctx.putImageData(data, 0, 0);
+      const inverted = canvas.toDataURL('image/png');
+      if (applyToGeneratedIdx !== undefined) {
+         const next = [...generatedMarks];
+         next[applyToGeneratedIdx] = inverted;
+         setGeneratedMarks(next);
+      } else if (applyToStockIdx !== undefined) {
+         const next = [...stockedMarks];
+         next[applyToStockIdx] = inverted;
+         setStockedMarks(next);
+         localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+      }
+    };
+    img.src = base64;
+  };
+
+  const downloadPng = (base64: string) => {
+    const a = document.createElement('a');
+    a.href = base64;
+    a.download = `mark_${Date.now()}.png`;
+    a.click();
+  };
+
   // TEXT
   const [prompt, setPrompt] = useState('漢字\nWATANABE');
   const [fontMain, setFontMain] = useState(FONTS[7].value);
@@ -296,6 +370,109 @@ const App: React.FC = () => {
     setStatus('error');
     setErrorMsg(err.message || 'SYSTEM_FAILURE');
     console.error(err);
+  };
+
+  const processGeneratedMark = (base64Image: string) => {
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height); // Ensure white bg
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        // Extract colorFace RGB
+        const tempDiv = document.createElement('div');
+        tempDiv.style.color = colorFace;
+        document.body.appendChild(tempDiv);
+        const style = window.getComputedStyle(tempDiv);
+        const rgbMatch = style.color.match(/\d+/g);
+        document.body.removeChild(tempDiv);
+        let rFace = 255, gFace = 255, bFace = 255;
+        if (rgbMatch && rgbMatch.length >= 3) {
+            rFace = parseInt(rgbMatch[0]);
+            gFace = parseInt(rgbMatch[1]);
+            bFace = parseInt(rgbMatch[2]);
+        }
+
+        // Convert white/light to transparent, black/dark to solid colorFace
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i+1];
+            const b = data[i+2];
+            const luminance = 0.299*r + 0.587*g + 0.114*b;
+            if (luminance < 150) { // Dark part -> Solid object
+                data[i] = rFace;
+                data[i+1] = gFace;
+                data[i+2] = bFace;
+                data[i+3] = 255;
+            } else { // Light part -> Transparent backgroud
+                data[i+3] = 0;
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        setImageData(trimCanvas(canvas));
+        if(!sceneCode) setViewMode('image');
+    };
+    img.src = base64Image;
+  };
+
+  const generateAiMarks = async () => {
+    if (!markPrompt) return;
+    setGeneratingMarks(true);
+    setThinkingText('GENERATING MARKS VIA AI...');
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      // @ts-ignore
+      const activeKey = customApiKey || process.env.GEMINI_API_KEY;
+      if (!activeKey) {
+        setShowApiSettings(true);
+        throw new Error("APIキーが設定されていません。環境変数または設定から入力してください。");
+      }
+      const ai = new GoogleGenAI({ apiKey: activeKey });
+      const prompt = `[モチーフ：${markPrompt}] をテーマにしたロゴマーク。白背景に、黒一色の塗りつぶし（Solid black silhouettes）。陰影やグラデーションは一切なし。ミニマルでフラットなデザイン。2Dのベクターロゴスタイル。`;
+      
+      const promises = Array.from({ length: 4 }).map(() => ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: prompt
+      }).catch(err => {
+         console.warn("Generation error:", err);
+         return null;
+      }));
+
+      const responses = await Promise.all(promises);
+      const newMarks: string[] = [];
+      responses.forEach(res => {
+         if (!res) return;
+         try {
+           const parts = res.candidates?.[0]?.content?.parts;
+           if (parts) {
+             for (const part of parts) {
+               if (part.inlineData && part.inlineData.data) {
+                 newMarks.push(`data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`);
+                 break;
+               }
+             }
+           }
+         } catch(e) {}
+      });
+
+      if (newMarks.length > 0) {
+         setGeneratedMarks(prev => [...newMarks, ...prev].slice(0, 20));
+      } else {
+         throw new Error("画像の生成に失敗しました。時間をおいて再試行してください。");
+      }
+    } catch (err: any) {
+       handleError(err);
+    } finally {
+      setGeneratingMarks(false);
+      setThinkingText(null);
+    }
   };
 
   const renderTextToImage = () => {
@@ -545,13 +722,132 @@ const App: React.FC = () => {
         {/* LEFT SIDEBAR: PARAMETERS */}
         <aside className="w-72 border-r border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
           <div className="flex bg-[var(--bg-panel)] border-b border-[var(--border-base)] shrink-0">
-            <button onClick={() => setActiveTab('text')} className={`flex-1 py-3 text-[10px] font-bold tracking-wider ${activeTab === 'text' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>テキスト</button>
-            <button onClick={() => setActiveTab('style')} className={`flex-1 py-3 text-[10px] font-bold tracking-wider ${activeTab === 'style' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>デザイン</button>
-            <button onClick={() => setActiveTab('3d')} className={`flex-1 py-3 text-[10px] font-bold tracking-wider ${activeTab === '3d' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>3Dエンジン</button>
+            <button onClick={() => setActiveTab('text')} className={`flex-1 py-3 text-[9px] font-bold tracking-wider ${activeTab === 'text' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>テキスト</button>
+            <button onClick={() => setActiveTab('mark')} className={`flex-1 py-3 text-[9px] font-bold tracking-wider ${activeTab === 'mark' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>AIマーク</button>
+            <button onClick={() => setActiveTab('style')} className={`flex-1 py-3 text-[9px] font-bold tracking-wider ${activeTab === 'style' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>デザイン</button>
+            <button onClick={() => setActiveTab('3d')} className={`flex-1 py-3 text-[9px] font-bold tracking-wider ${activeTab === '3d' ? 'text-white border-b-2 border-emerald-500 bg-[#252f41]' : 'text-gray-500 hover:text-white'}`}>3Dエンジン</button>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           
+          {activeTab === 'mark' && (
+            <div className="flex flex-col gap-4 animate-fade-in relative">
+              <div className="ss-panel p-3">
+                <div className="ss-label mb-2 mt-1 flex justify-between items-center">
+                  <div>
+                    <span className="ss-number">01</span>
+                    <span className="ss-title">ロゴのモチーフ</span>
+                  </div>
+                  <button onClick={() => setShowApiSettings(!showApiSettings)} className="text-[#4e5d74] hover:text-white" title="API Settings">
+                    <Settings size={12} />
+                  </button>
+                </div>
+                
+                {showApiSettings && (
+                  <div className="mb-4 p-3 bg-black/40 border border-[#343d4a] rounded shadow-lg">
+                    <div className="text-[10px] text-[#8a95a3] mb-2">Gemini API Key (PWA等の外部環境用)</div>
+                    <input 
+                      type="password" 
+                      className="ss-input py-1.5 px-2 text-[10px] w-full mb-1" 
+                      placeholder="AI Studioでは不要です" 
+                      value={customApiKey} 
+                      onChange={e => handleCustomApiKey(e.target.value)}
+                    />
+                    <div className="text-[8px] text-[#4e5d74]">※ブラウザのローカルストレージに保存されます</div>
+                  </div>
+                )}
+
+                <input 
+                  type="text" 
+                  className="ss-input py-2 px-3 text-[12px] h-10 w-full mb-3" 
+                  placeholder="例：龍、幾何学模様、歯車など" 
+                  value={markPrompt} 
+                  onChange={e => setMarkPrompt(e.target.value)}
+                />
+                <button 
+                  className="ss-btn ss-btn-primary border-emerald-500 text-emerald-500 bg-transparent hover:bg-emerald-500/10 mb-2 w-full flex items-center justify-center gap-2"
+                  disabled={generatingMarks || !markPrompt}
+                  onClick={generateAiMarks}
+                >
+                  {generatingMarks ? <span className="animate-pulse">GENERATING...</span> : <><Zap size={12}/>4パターン生成する</>}
+                </button>
+                <div className="text-[9px] text-[#4e5d74] text-center mt-1">
+                  AIがモチーフから白黒のマークを生成します。
+                </div>
+              </div>
+
+              {generatedMarks.length > 0 && (
+                <div className="ss-panel p-3">
+                  <div className="ss-label mb-3 mt-1 flex justify-between items-center">
+                    <div>
+                      <span className="ss-number">02</span>
+                      <span className="ss-title">生成結果一覧</span>
+                    </div>
+                    <ResetBtn onClick={() => setGeneratedMarks([])} />
+                  </div>
+                  <div className="text-[10px] text-[var(--text-base)] mb-3 leading-relaxed">
+                    画像をクリックするとキャンバスに適用され、3D化されます。
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {generatedMarks.map((markBase64, idx) => (
+                      <div 
+                        key={idx} 
+                        className="group relative aspect-square bg-white border border-[var(--border-base)] rounded cursor-pointer hover:border-emerald-500 transition-colors flex items-center justify-center p-2 overflow-hidden bg-white"
+                        onClick={() => processGeneratedMark(markBase64)}
+                      >
+                        <img src={markBase64} alt={`Mark ${idx}`} className="w-full h-full object-contain" />
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-black/80 p-1 rounded">
+                           <button onClick={(e) => { e.stopPropagation(); handleInvert(markBase64, idx, undefined); }} className="text-gray-300 hover:text-white p-0.5" title="白黒反転">
+                             <Contrast size={12} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); handleStockAdd(markBase64); }} className="text-gray-300 hover:text-emerald-400 p-0.5" title="ストックに追加">
+                             <BookmarkPlus size={12} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNGダウンロード">
+                             <Download size={12} />
+                           </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {stockedMarks.length > 0 && (
+                <div className="ss-panel p-3">
+                  <div className="ss-label mb-3 mt-1 flex justify-between items-center">
+                    <div>
+                      <span className="ss-number">03</span>
+                      <span className="ss-title">ストック ({stockedMarks.length})</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {stockedMarks.map((markBase64, idx) => (
+                      <div 
+                        key={`stock-${idx}`} 
+                        className="group relative aspect-square bg-white border border-[var(--border-base)] rounded cursor-pointer hover:border-emerald-500 transition-colors flex items-center justify-center p-1.5 overflow-hidden bg-white"
+                        onClick={() => processGeneratedMark(markBase64)}
+                      >
+                        <img src={markBase64} alt={`Stock ${idx}`} className="w-full h-full object-contain" />
+                        <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 bg-black/80 p-1 rounded-bl">
+                           <button onClick={(e) => { e.stopPropagation(); handleInvert(markBase64, undefined, idx); }} className="text-gray-300 hover:text-white p-0.5" title="白黒反転">
+                             <Contrast size={10} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNGダウンロード">
+                             <Download size={10} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); handleStockRemove(idx); }} className="text-gray-300 hover:text-red-400 p-0.5" title="削除">
+                             <Trash2 size={10} />
+                           </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'text' && (
             <>
             <div className="ss-panel p-3 animate-fade-in">
