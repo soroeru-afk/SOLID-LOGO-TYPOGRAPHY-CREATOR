@@ -124,8 +124,30 @@ const App: React.FC = () => {
   const [generatingMarks, setGeneratingMarks] = useState(false);
   const [generatedMarks, setGeneratedMarks] = useState<string[]>([]);
   const [stockedMarks, setStockedMarks] = useState<string[]>([]);
+  const [selectedStockId, setSelectedStockId] = useState<number | null>(null);
   const [customApiKey, setCustomApiKey] = useState('');
   const [showApiSettings, setShowApiSettings] = useState(false);
+
+  const [attachedMark, setAttachedMark] = useState<string | null>(null);
+  const [attachedMarkScale, setAttachedMarkScale] = useState(1.0);
+  const [attachedMarkOffsetX, setAttachedMarkOffsetX] = useState(0);
+  const [attachedMarkOffsetY, setAttachedMarkOffsetY] = useState(-150);
+  const attachedMarkImgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (attachedMark) {
+        const img = new Image();
+        img.onload = () => {
+            attachedMarkImgRef.current = img;
+            renderTextToImage();
+        };
+        img.src = attachedMark;
+    } else {
+        attachedMarkImgRef.current = null;
+        renderTextToImage();
+    }
+  }, [attachedMark]);
+
 
   useEffect(() => {
     try {
@@ -139,6 +161,26 @@ const App: React.FC = () => {
   const handleCustomApiKey = (val: string) => {
     setCustomApiKey(val);
     localStorage.setItem('solid_typography_apikey', val);
+  };
+
+  const toggleStockSelection = (idx: number) => {
+    setSelectedStockId(prev => (prev === idx ? null : idx));
+  };
+
+  const handleSelectedRemove = () => {
+    if (selectedStockId === null) return;
+    handleStockRemove(selectedStockId);
+    setSelectedStockId(null);
+  };
+
+  const handleSelectedDownload = (transparent: boolean) => {
+    if (selectedStockId === null) return;
+    downloadPng(stockedMarks[selectedStockId], transparent);
+  };
+
+  const handleSelectedInvert = () => {
+    if (selectedStockId === null) return;
+    handleInvert(stockedMarks[selectedStockId], undefined, selectedStockId);
   };
 
   const handleStockAdd = (base64: string) => {
@@ -185,11 +227,62 @@ const App: React.FC = () => {
     img.src = base64;
   };
 
-  const downloadPng = (base64: string) => {
-    const a = document.createElement('a');
-    a.href = base64;
-    a.download = `mark_${Date.now()}.png`;
-    a.click();
+  const downloadPng = (base64: string, transparent: boolean) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height); // Ensure white bg
+      ctx.drawImage(img, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      // Extract mask with anti-aliasing
+      for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i+1];
+          const b = data[i+2];
+          const luminance = 0.299*r + 0.587*g + 0.114*b;
+          
+          // Pure white background becomes fully transparent.
+          // Dark lines become opaque black.
+          // Gray anti-aliased edges become partially transparent black.
+          const alpha = 255 - luminance;
+          
+          data[i] = 0;
+          data[i+1] = 0;
+          data[i+2] = 0;
+          data[i+3] = alpha;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      
+      const trimmedCanvas = document.createElement('canvas');
+      const tempCtx = trimmedCanvas.getContext('2d');
+      const tempImg = new Image();
+      tempImg.onload = () => {
+         trimmedCanvas.width = tempImg.width;
+         trimmedCanvas.height = tempImg.height;
+         const trimCtx = trimmedCanvas.getContext('2d');
+         if (!trimCtx) return;
+         if (!transparent) {
+            trimCtx.fillStyle = '#FFFFFF';
+            trimCtx.fillRect(0, 0, trimmedCanvas.width, trimmedCanvas.height);
+         }
+         trimCtx.drawImage(tempImg, 0, 0);
+         
+         const a = document.createElement('a');
+         a.href = trimmedCanvas.toDataURL('image/png');
+         a.download = transparent ? `mark_transparent_${Date.now()}.png` : `mark_solid_${Date.now()}.png`;
+         a.click();
+      };
+      tempImg.src = trimCanvas(canvas);
+    };
+    img.src = base64;
   };
 
   // TEXT
@@ -235,19 +328,64 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'image' | 'scene'>('image');
   const [errorMsg, setErrorMsg] = useState('');
   const [thinkingText, setThinkingText] = useState<string | null>(null);
-  const [history, setHistory] = useState<{id: string, image: string, code: string, title: string}[]>([]);
+  const [history, setHistory] = useState<{id: string, image: string, code: string | null, title: string, settings?: any}[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // 2D View Controls
+  const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
+  const [imageZoom, setImageZoom] = useState(0.95);
+  const [previewBgMode, setPreviewBgMode] = useState<'transparent' | 'solid'>('transparent');
+  const isDraggingImage = useRef(false);
+  const lastMousePos = useRef({ x: 0, y: 0 });
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (viewMode !== 'image') return;
+    setImageZoom(prev => Math.max(0.1, Math.min(5.0, prev - e.deltaY * 0.001)));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (viewMode === 'image' && e.button === 2) {
+      isDraggingImage.current = true;
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (viewMode === 'image' && isDraggingImage.current) {
+      const dx = e.clientX - lastMousePos.current.x;
+      const dy = e.clientY - lastMousePos.current.y;
+      setImagePan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isDraggingImage.current) {
+      isDraggingImage.current = false;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (viewMode === 'image') {
+      e.preventDefault();
+    }
+  };
+
+  const getCurrentSettings = () => ({
+    prompt, fontMain, sizeMain,
+    subPrompt, fontSub, sizeSub,
+    subOffsetX, subOffsetY,
+    textAlign, letterSpacing, lineHeight,
+    skewX, skewY, colorFace, colorSide, bgColor,
+    ornaments, resolution, thickness, autoRotate, lighting, effectStyle,
+    attachedMark, attachedMarkScale, attachedMarkOffsetX, attachedMarkOffsetY
+  });
+
   const exportSettings = () => {
-    const settings = {
-      prompt, fontMain, sizeMain,
-      subPrompt, fontSub, sizeSub,
-      subOffsetX, subOffsetY,
-      textAlign, letterSpacing, lineHeight,
-      skewX, skewY, colorFace, colorSide, bgColor,
-      ornaments, resolution, thickness, autoRotate, lighting, effectStyle
-    };
+    const settings = getCurrentSettings();
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings));
     const exportFileDefaultName = 'typography_settings.json';
 
@@ -286,6 +424,10 @@ const App: React.FC = () => {
             if (settings.autoRotate !== undefined) setAutoRotate(settings.autoRotate);
             if (settings.lighting !== undefined) setLighting(settings.lighting);
             if (settings.effectStyle !== undefined) setEffectStyle(settings.effectStyle);
+            if (settings.attachedMark !== undefined) setAttachedMark(settings.attachedMark);
+            if (settings.attachedMarkScale !== undefined) setAttachedMarkScale(settings.attachedMarkScale);
+            if (settings.attachedMarkOffsetX !== undefined) setAttachedMarkOffsetX(settings.attachedMarkOffsetX);
+            if (settings.attachedMarkOffsetY !== undefined) setAttachedMarkOffsetY(settings.attachedMarkOffsetY);
         } catch (err) {
             console.error("Invalid settings file");
             alert("Invalid settings file");
@@ -341,7 +483,15 @@ const App: React.FC = () => {
       renderTextToImage();
     }, 150);
     return () => clearTimeout(timer);
-  }, [prompt, subPrompt, fontMain, sizeMain, fontSub, sizeSub, letterSpacing, lineHeight, textAlign, colorFace, subOffsetX, subOffsetY, skewX, skewY, JSON.stringify(ornaments)]);
+  }, [prompt, subPrompt, fontMain, sizeMain, fontSub, sizeSub, letterSpacing, lineHeight, textAlign, colorFace, subOffsetX, subOffsetY, skewX, skewY, JSON.stringify(ornaments), attachedMarkScale, attachedMarkOffsetX, attachedMarkOffsetY]);
+
+  // Handle activeTab changes for text tab specifically
+  useEffect(() => {
+    if (activeTab === 'text') {
+       if(!sceneCode) setViewMode('image');
+       renderTextToImage();
+    }
+  }, [activeTab]);
 
   // Auto-rebuild the 3D scene when rendering parameters change
   useEffect(() => {
@@ -386,38 +536,23 @@ const App: React.FC = () => {
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imgData.data;
 
-        // Extract colorFace RGB
-        const tempDiv = document.createElement('div');
-        tempDiv.style.color = colorFace;
-        document.body.appendChild(tempDiv);
-        const style = window.getComputedStyle(tempDiv);
-        const rgbMatch = style.color.match(/\d+/g);
-        document.body.removeChild(tempDiv);
-        let rFace = 255, gFace = 255, bFace = 255;
-        if (rgbMatch && rgbMatch.length >= 3) {
-            rFace = parseInt(rgbMatch[0]);
-            gFace = parseInt(rgbMatch[1]);
-            bFace = parseInt(rgbMatch[2]);
-        }
-
-        // Convert white/light to transparent, black/dark to solid colorFace
+        // Extract mask with anti-aliasing
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i+1];
             const b = data[i+2];
             const luminance = 0.299*r + 0.587*g + 0.114*b;
-            if (luminance < 150) { // Dark part -> Solid object
-                data[i] = rFace;
-                data[i+1] = gFace;
-                data[i+2] = bFace;
-                data[i+3] = 255;
-            } else { // Light part -> Transparent backgroud
-                data[i+3] = 0;
-            }
+            const alpha = 255 - luminance;
+            data[i] = 0;
+            data[i+1] = 0;
+            data[i+2] = 0;
+            data[i+3] = alpha;
         }
         ctx.putImageData(imgData, 0, 0);
-        setImageData(trimCanvas(canvas));
-        if(!sceneCode) setViewMode('image');
+        
+        const trimmed = trimCanvas(canvas);
+        setAttachedMark(trimmed);
+        setActiveTab('text');
     };
     img.src = base64Image;
   };
@@ -625,14 +760,64 @@ const App: React.FC = () => {
       });
     }
 
+    if (attachedMarkImgRef.current) {
+        ctx.save();
+        ctx.translate(attachedMarkOffsetX, attachedMarkOffsetY);
+        ctx.scale(attachedMarkScale, attachedMarkScale);
+        ctx.drawImage(attachedMarkImgRef.current, -attachedMarkImgRef.current.width / 2, -attachedMarkImgRef.current.height / 2);
+        ctx.restore();
+    }
+
+    // Colorize everything (text + ornaments + mark) to colorFace
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = colorFace;
+    ctx.fillRect(-canvas.width, -canvas.height, canvas.width * 2, canvas.height * 2);
+    ctx.globalCompositeOperation = 'source-over';
+
     ctx.restore();
 
     setImageData(trimCanvas(canvas));
-    if(!sceneCode) setViewMode('image');
+    if(!sceneCode && activeTab === 'text') setViewMode('image');
+  };
+
+  const handleExport2D = (transparent: boolean) => {
+    if (!imageData) return;
+    const img = new Image();
+    img.onload = () => {
+      // Add padding by creating a slightly larger canvas
+      const padding = 100;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width + padding * 2;
+      canvas.height = img.height + padding * 2;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      if (!transparent) {
+         ctx.fillStyle = bgColor; // Use user's selected background color
+         ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.drawImage(img, padding, padding);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = transparent ? `solid_logo_transparent_${Date.now()}.png` : `solid_logo_solid_${Date.now()}.png`;
+      a.click();
+    };
+    img.src = imageData;
+  };
+
+  const handleSave2DToCache = () => {
+    if (!imageData) return;
+    const newSnapshot = {
+      id: Date.now().toString(),
+      image: imageData,
+      code: "", // using empty string to signify 2D snapshot
+      title: prompt.split('\n')[0].substring(0, 10).trim() || '2D_LOGO',
+      settings: getCurrentSettings()
+    };
+    setHistory(prev => [newSnapshot, ...prev].slice(0, 5));
   };
 
   const handleConstructScene = () => {
-    if (!imageData || status !== 'idle') return;
+    if (!imageData) return;
     setStatus('generating_scene');
     setErrorMsg('');
     setThinkingText('COMPILING SHADER TOPOLOGY...');
@@ -647,7 +832,8 @@ const App: React.FC = () => {
           id: Date.now().toString(),
           image: imageData,
           code: code,
-          title: prompt.split('\\n')[0].substring(0, 10).trim() || 'UNNAMED_TYPO'
+          title: prompt.split('\\n')[0].substring(0, 10).trim() || 'UNNAMED_TYPO',
+          settings: getCurrentSettings()
         };
         setHistory(prev => [newSnapshot, ...prev].slice(0, 5));
 
@@ -662,8 +848,47 @@ const App: React.FC = () => {
 
   const loadSnapshot = (sn: typeof history[0]) => {
     setImageData(sn.image);
-    setSceneCode(sn.code);
-    setViewMode('scene');
+    if (!sn.code) {
+       setSceneCode(null);
+       setViewMode('image');
+       setActiveTab('text');
+    } else {
+       setSceneCode(sn.code);
+       setViewMode('scene');
+    }
+    
+    if (sn.settings) {
+        const setts = sn.settings;
+        if (setts.prompt !== undefined) setPrompt(setts.prompt);
+        if (setts.fontMain !== undefined) setFontMain(setts.fontMain);
+        if (setts.sizeMain !== undefined) setSizeMain(setts.sizeMain);
+        if (setts.subPrompt !== undefined) setSubPrompt(setts.subPrompt);
+        if (setts.fontSub !== undefined) setFontSub(setts.fontSub);
+        if (setts.sizeSub !== undefined) setSizeSub(setts.sizeSub);
+        if (setts.subOffsetX !== undefined) setSubOffsetX(setts.subOffsetX);
+        if (setts.subOffsetY !== undefined) setSubOffsetY(setts.subOffsetY);
+        if (setts.textAlign !== undefined) setTextAlign(setts.textAlign);
+        if (setts.letterSpacing !== undefined) setLetterSpacing(setts.letterSpacing);
+        if (setts.lineHeight !== undefined) setLineHeight(setts.lineHeight);
+        if (setts.skewX !== undefined) setSkewX(setts.skewX);
+        if (setts.skewY !== undefined) setSkewY(setts.skewY);
+        if (setts.colorFace !== undefined) setColorFace(setts.colorFace);
+        if (setts.colorSide !== undefined) setColorSide(setts.colorSide);
+        if (setts.bgColor !== undefined) setBgColor(setts.bgColor);
+        if (setts.ornaments !== undefined) setOrnaments(setts.ornaments);
+        if (setts.resolution !== undefined) setResolution(setts.resolution);
+        if (setts.thickness !== undefined) setThickness(setts.thickness);
+        if (setts.autoRotate !== undefined) setAutoRotate(setts.autoRotate);
+        if (setts.lighting !== undefined) setLighting(setts.lighting);
+        if (setts.effectStyle !== undefined) setEffectStyle(setts.effectStyle);
+        if (setts.attachedMark !== undefined) setAttachedMark(setts.attachedMark);
+        if (setts.attachedMarkScale !== undefined) setAttachedMarkScale(setts.attachedMarkScale);
+        if (setts.attachedMarkOffsetX !== undefined) setAttachedMarkOffsetX(setts.attachedMarkOffsetX);
+        if (setts.attachedMarkOffsetY !== undefined) setAttachedMarkOffsetY(setts.attachedMarkOffsetY);
+    } else {
+       // fallback if no settings found
+       if (!sn.code) setAttachedMark(null);
+    }
   };
 
   const downloadSceneHtml = () => {
@@ -701,7 +926,7 @@ const App: React.FC = () => {
       <header className="flex justify-between items-center shrink-0 border-b border-[var(--border-base)] px-6 py-3 bg-[var(--bg-panel)]/80 backdrop-blur-md z-50">
         <div className="flex items-center gap-3 w-1/4">
           <Terminal size={14} className="text-[var(--text-bright)]" />
-          <h1 className="text-[var(--text-bright)] text-sm font-bold tracking-[0.3em] whitespace-nowrap">SOLID TYPOGRAPHY DESIGNER</h1>
+          <h1 className="text-[var(--text-bright)] text-sm font-bold tracking-normal whitespace-nowrap">SOLID LOGO &amp; TYPOGRAPHY CREATOR</h1>
         </div>
         
         <div className="flex-1 flex justify-center px-12 text-[#2d3a4d] text-[10px] tracking-widest font-bold">
@@ -803,7 +1028,10 @@ const App: React.FC = () => {
                            <button onClick={(e) => { e.stopPropagation(); handleStockAdd(markBase64); }} className="text-gray-300 hover:text-emerald-400 p-0.5" title="ストックに追加">
                              <BookmarkPlus size={12} />
                            </button>
-                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNGダウンロード">
+                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64, false); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNG(透過なし)ダウンロード">
+                             <ImageIcon size={12} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64, true); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNG(透過)ダウンロード">
                              <Download size={12} />
                            </button>
                         </div>
@@ -821,27 +1049,42 @@ const App: React.FC = () => {
                       <span className="ss-title">ストック ({stockedMarks.length})</span>
                     </div>
                   </div>
+                  
+                  <div className="flex gap-2 mb-3 pt-2 pb-2 bg-[#1a1f26] border border-[#2d3a4d] rounded justify-center items-center">
+                     <span className="text-[10px] text-gray-400 font-bold tracking-widest mr-2">MENU</span>
+                     <button onClick={handleSelectedInvert} disabled={selectedStockId === null} className={`p-1 ${selectedStockId !== null ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`} title="白黒反転">
+                       <Contrast size={12} />
+                     </button>
+                     <button onClick={() => handleSelectedDownload(false)} disabled={selectedStockId === null} className={`p-1 ${selectedStockId !== null ? 'text-gray-300 hover:text-blue-400 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`} title="PNG(透過なし)ダウンロード">
+                       <ImageIcon size={12} />
+                     </button>
+                     <button onClick={() => handleSelectedDownload(true)} disabled={selectedStockId === null} className={`p-1 ${selectedStockId !== null ? 'text-gray-300 hover:text-blue-400 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`} title="PNG(透過)ダウンロード">
+                       <Download size={12} />
+                     </button>
+                     <button onClick={handleSelectedRemove} disabled={selectedStockId === null} className={`p-1 ml-1 ${selectedStockId !== null ? 'text-gray-300 hover:text-red-400 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`} title="削除">
+                       <Trash2 size={12} />
+                     </button>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
-                    {stockedMarks.map((markBase64, idx) => (
-                      <div 
-                        key={`stock-${idx}`} 
-                        className="group relative aspect-square bg-white border border-[var(--border-base)] rounded cursor-pointer hover:border-emerald-500 transition-colors flex items-center justify-center p-1.5 overflow-hidden bg-white"
-                        onClick={() => processGeneratedMark(markBase64)}
-                      >
-                        <img src={markBase64} alt={`Stock ${idx}`} className="w-full h-full object-contain" />
-                        <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 bg-black/80 p-1 rounded-bl">
-                           <button onClick={(e) => { e.stopPropagation(); handleInvert(markBase64, undefined, idx); }} className="text-gray-300 hover:text-white p-0.5" title="白黒反転">
-                             <Contrast size={10} />
-                           </button>
-                           <button onClick={(e) => { e.stopPropagation(); downloadPng(markBase64); }} className="text-gray-300 hover:text-blue-400 p-0.5" title="PNGダウンロード">
-                             <Download size={10} />
-                           </button>
-                           <button onClick={(e) => { e.stopPropagation(); handleStockRemove(idx); }} className="text-gray-300 hover:text-red-400 p-0.5" title="削除">
-                             <Trash2 size={10} />
-                           </button>
+                    {stockedMarks.map((markBase64, idx) => {
+                      const isSelected = selectedStockId === idx;
+                      return (
+                        <div 
+                          key={`stock-${idx}`} 
+                          className={`group relative aspect-square bg-white border ${isSelected ? 'border-emerald-500 scale-95' : 'border-[var(--border-base)] hover:border-emerald-500'} rounded cursor-pointer transition-all flex items-center justify-center p-1.5 overflow-hidden`}
+                          onClick={() => processGeneratedMark(markBase64)}
+                        >
+                          <img src={markBase64} alt={`Stock ${idx}`} className={`w-full h-full object-contain ${isSelected ? 'opacity-80' : ''}`} />
+                          <div 
+                            className={`absolute top-1 right-1 w-4 h-4 bg-black/60 border border-gray-400 rounded-sm flex items-center justify-center transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} 
+                            onClick={(e) => { e.stopPropagation(); toggleStockSelection(idx); }}
+                          >
+                            {isSelected && <div className="w-2 h-2 bg-emerald-500 rounded-sm" />}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -905,9 +1148,37 @@ const App: React.FC = () => {
               <input type="range" min="-300" max="300" step="10" value={subOffsetY} onChange={e => setSubOffsetY(Number(e.target.value))} className="ss-slider mb-2" />
             </div>
 
+            {attachedMark && (
+              <div className="ss-panel p-3 animate-fade-in">
+                <div className="ss-label mb-2 mt-1 flex justify-between items-center">
+                  <div>  
+                    <span className="ss-number">04</span>
+                    <span className="ss-title">AIマーク設定</span>
+                  </div>
+                  <button onClick={() => setAttachedMark(null)} className="text-red-400 hover:text-red-300 p-1" title="削除">
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+                <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
+                  <span>スケール</span><span className="ml-auto opacity-70 mr-2">{attachedMarkScale.toFixed(2)}</span><ResetBtn onClick={() => setAttachedMarkScale(1.0)} />
+                </div>
+                <input type="range" min="0.1" max="5.0" step="0.1" value={attachedMarkScale} onChange={e => setAttachedMarkScale(Number(e.target.value))} className="ss-slider mb-4" />
+
+                <div className="ss-label mb-2 text-[9px] flex items-center">
+                  <span>マークX軸</span><span className="ml-auto opacity-70 mr-2">{attachedMarkOffsetX}PX</span><ResetBtn onClick={() => setAttachedMarkOffsetX(0)} />
+                </div>
+                <input type="range" min="-500" max="500" step="10" value={attachedMarkOffsetX} onChange={e => setAttachedMarkOffsetX(Number(e.target.value))} className="ss-slider mb-4" />
+                
+                <div className="ss-label mb-2 text-[9px] flex items-center">
+                  <span>マークY軸</span><span className="ml-auto opacity-70 mr-2">{attachedMarkOffsetY}PX</span><ResetBtn onClick={() => setAttachedMarkOffsetY(-150)} />
+                </div>
+                <input type="range" min="-500" max="500" step="10" value={attachedMarkOffsetY} onChange={e => setAttachedMarkOffsetY(Number(e.target.value))} className="ss-slider mb-2" />
+              </div>
+            )}
+
             <div className="ss-panel p-3 animate-fade-in">
               <div className="ss-label mb-2 mt-1">
-                <span className="ss-number">04</span>
+                <span className="ss-number">{attachedMark ? '05' : '04'}</span>
                 <span className="ss-title">文字設定</span>
               </div>
 
@@ -971,6 +1242,21 @@ const App: React.FC = () => {
                     <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-8 cursor-pointer border-none bg-transparent" />
                   </div>
                 </div>
+              </div>
+              
+              <div className="flex gap-2 mt-3">
+                <button 
+                  onClick={() => { setColorFace('#000000'); setColorSide('#333333'); setBgColor('#FFFFFF'); }}
+                  className="flex-1 ss-btn py-1 px-2 border border-[#2d3a4d] text-[9px] hover:bg-white hover:text-black flex items-center justify-center gap-1 transition-colors"
+                >
+                  <div className="w-2 h-2 bg-black border border-gray-400"></div> B on W
+                </button>
+                <button 
+                  onClick={() => { setColorFace('#FFFFFF'); setColorSide('#CCCCCC'); setBgColor('#000000'); }}
+                  className="flex-1 ss-btn py-1 px-2 border border-[#2d3a4d] text-[9px] hover:bg-white hover:text-black flex items-center justify-center gap-1 transition-colors"
+                >
+                  <div className="w-2 h-2 bg-white border border-gray-400"></div> W on B
+                </button>
               </div>
             </div>
 
@@ -1241,14 +1527,32 @@ const App: React.FC = () => {
         {/* MAIN VIEWPORT */}
         <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-main)]/20 relative">
           {/* Viewport Header */}
-          <div className="flex bg-[var(--bg-panel)]/60 border-b border-[var(--border-base)] shrink-0">
-             <div className={`ss-tab ${viewMode === 'image' ? 'ss-tab-active' : ''}`} onClick={() => setViewMode('image')}>
-              <Type size={10} /> BASE_MAP
+          <div className="flex bg-[var(--bg-panel)]/60 border-b border-[var(--border-base)] shrink-0 items-center">
+             <div className="flex">
+               <div className={`ss-tab ${viewMode === 'image' ? 'ss-tab-active' : ''}`} onClick={() => setViewMode('image')}>
+                <Type size={10} /> BASE_MAP
+              </div>
+              <div className={`ss-tab ${viewMode === 'scene' ? 'ss-tab-active' : ''}`} onClick={() => sceneCode && setViewMode('scene')}>
+                <ImageIcon size={10} /> 3D_STUDIO
+              </div>
             </div>
-            <div className={`ss-tab ${viewMode === 'scene' ? 'ss-tab-active' : ''}`} onClick={() => sceneCode && setViewMode('scene')}>
-              <ImageIcon size={10} /> 3D_STUDIO
+            
+            <div className="flex-1 px-4">
+               {viewMode === 'image' && (
+                 <div className="flex gap-2">
+                   <button 
+                    onClick={() => setPreviewBgMode(p => p === 'transparent' ? 'solid' : 'transparent')}
+                    className="ss-btn py-1 px-3 text-[#8b9bb4] border border-[#3e4f69] hover:bg-[#2d3a4d] hover:text-white flex gap-2 items-center tracking-widest"
+                   >
+                     <Contrast size={12} /> <span className="text-[10px] font-bold">BACKGROUND MODE: {previewBgMode.toUpperCase()}</span>
+                   </button>
+                   <button onClick={() => { setImagePan({x:0, y:0}); setImageZoom(0.95); }} className="ss-btn py-1 px-3 text-[#8b9bb4] border border-[#3e4f69] hover:bg-[#2d3a4d] hover:text-white flex gap-2 items-center tracking-widest">
+                     <Maximize2 size={12} /> <span className="text-[10px] font-bold">RESET VIEW</span>
+                   </button>
+                 </div>
+               )}
             </div>
-            <div className="flex-1"></div>
+
             <div className="flex items-center pr-2 gap-2">
                <button 
                 onClick={handleConstructScene} 
@@ -1282,7 +1586,20 @@ const App: React.FC = () => {
               )}
             </AnimatePresence>
             
-            <div className="w-full h-full relative" style={{ backgroundImage: "radial-gradient(var(--border-base) 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
+            <div 
+              className="w-full h-full relative" 
+              style={{ 
+                backgroundColor: viewMode === 'image' && previewBgMode === 'solid' ? bgColor : undefined,
+                backgroundImage: viewMode === 'image' && previewBgMode === 'solid' ? 'none' : "radial-gradient(var(--border-base) 1px, transparent 1px)", 
+                backgroundSize: viewMode === 'image' && previewBgMode === 'solid' ? "auto" : "20px 20px" 
+              }}
+              onWheel={handleWheel}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onContextMenu={handleContextMenu}
+            >
               {viewMode === 'scene' && sceneCode ? (
                 <iframe 
                   ref={iframeRef}
@@ -1293,13 +1610,13 @@ const App: React.FC = () => {
                   onLoad={(e) => { (e.currentTarget as HTMLIFrameElement).style.opacity = '1'; }}
                 />
               ) : viewMode === 'image' && imageData ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 overflow-hidden relative">
-                  <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, transparent 0%, var(--bg-main) 80%)' }}></div>
+                <div className="w-full h-full flex flex-col items-center justify-center p-8 overflow-hidden relative cursor-grab active:cursor-grabbing">
+                  {previewBgMode === 'transparent' && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, transparent 0%, var(--bg-main) 80%)' }}></div>}
                   <img 
                     src={imageData} 
                     alt="2D Preview"
-                    className="relative z-10 max-w-full max-h-full object-contain drop-shadow-2xl"
-                    style={{ transform: 'scale(0.95)' }}
+                    className="relative z-10 max-w-full max-h-full object-contain pointer-events-none"
+                    style={{ transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`, filter: previewBgMode === 'transparent' ? 'drop-shadow(0 25px 25px rgb(0 0 0 / 0.5))' : 'none' }}
                   />
                 </div>
               ) : (
@@ -1384,16 +1701,19 @@ const App: React.FC = () => {
       </div>
 
       {/* FOOTER BAR */}
-      <footer className="h-10 border-t border-[var(--border-base)] bg-[var(--bg-panel)] shrink-0 flex divide-x divide-[var(--border-base)]">
-         <button onClick={copyToClipboard} className="flex-1 ss-btn border-none hover:bg-white hover:text-black transition-colors uppercase font-bold text-[9px]">Copy Source Code</button>
-         <button onClick={() => {setSceneCode(null); setViewMode('image'); setHistory([]);}} className="flex-1 ss-btn border-none hover:bg-white hover:text-black transition-colors uppercase font-bold text-[9px]">Flush Cache</button>
-         <button 
-          onClick={downloadSceneHtml}
-          disabled={!sceneCode}
-          className={`flex-1 ss-btn border-none transition-colors uppercase font-bold text-[9px] ${sceneCode ? 'ss-btn-active hover:bg-white hover:text-black' : 'opacity-20'}`}
-         >
-          Export 3D Scene
-         </button>
+      <footer className="p-3 border-t border-[var(--border-base)] bg-[#11151c] shrink-0 flex gap-3 h-[60px]">
+         <button onClick={copyToClipboard} className="flex-1 bg-[#1a212d] hover:bg-[#253041] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-gray-300 hover:text-white tracking-widest text-center flex items-center justify-center ss-btn-modern">COPY SOURCE</button>
+         
+         <div className="flex-[2] flex gap-3">
+           <button onClick={() => handleExport2D(false)} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-gray-300 hover:text-white cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>PNG (SOLID)</button>
+           <button onClick={() => handleExport2D(true)} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-[#34d399] hover:text-emerald-300 cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>PNG (ALPHA)</button>
+         </div>
+         
+         <button onClick={handleSave2DToCache} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-gray-300 hover:text-white cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>SAVE TO CACHE</button>
+         
+         <button onClick={() => {setSceneCode(null); setViewMode('image'); setHistory([]);}} className="flex-1 bg-[#1a212d] hover:bg-[#253041] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-gray-300 hover:text-white tracking-widest text-center flex items-center justify-center ss-btn-modern">CLEAR CACHE</button>
+         
+         <button onClick={downloadSceneHtml} disabled={!sceneCode} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${sceneCode ? 'hover:bg-[#253041] text-[#60a5fa] hover:text-blue-300 cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>EXPORT 3D</button>
       </footer>
 
       {/* DEBUG STRIP */}
