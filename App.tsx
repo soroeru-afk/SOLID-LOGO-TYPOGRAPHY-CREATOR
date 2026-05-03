@@ -968,7 +968,17 @@ const App: React.FC = () => {
       ctx.drawImage(img, padding, padding);
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
-      a.download = transparent ? `solid_logo_${prefix}_transparent_${Date.now()}.png` : `solid_logo_${prefix}_solid_${Date.now()}.png`;
+      
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const MM = String(now.getMonth() + 1).padStart(2, '0');
+      const DD = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const dateStr = `${yyyy}${MM}${DD}_${hh}${mm}${ss}`;
+
+      a.download = `logo_${dateStr}_${prefix}_${transparent ? 'alpha' : 'solid'}.png`;
       a.click();
     };
     img.src = baseImageSrc;
@@ -1502,7 +1512,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <div className="ss-label mb-1 text-[8px] justify-between">側面色 <ResetBtn onClick={() => setColorSide('#D32F2F')} /></div>
+                  <div className="ss-label mb-1 text-[8px] justify-between">側面色 <ResetBtn onClick={() => setColorSide('#808080')} /></div>
                   <div className="flex bg-[var(--bg-panel)] p-1 rounded-sm border border-[var(--border-base)]">
                     <input type="color" value={colorSide} onChange={e => setColorSide(e.target.value)} className="w-full h-8 cursor-pointer border-none bg-transparent" />
                   </div>
