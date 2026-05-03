@@ -50,7 +50,7 @@ export const buildThreeJsScene = (
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
   camera.position.set(0, 0, RESOLUTION * 1.5);
   
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0); // Transparent
@@ -227,6 +227,10 @@ export const buildThreeJsScene = (
       lights[1].intensity = 1.2 * LIGHTING; // dir1
       lights[2].intensity = 1.0 * LIGHTING; // dir2
       lights[3].intensity = 2.0 * LIGHTING; // spot
+    } else if (e.data.type === 'REQUEST_THUMBNAIL') {
+      renderer.render(scene, camera);
+      const dataUrl = renderer.domElement.toDataURL('image/png');
+      window.parent.postMessage({ type: 'THUMBNAIL_DATA', dataUrl }, '*');
     }
   });
 

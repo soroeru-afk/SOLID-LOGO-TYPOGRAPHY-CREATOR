@@ -21,7 +21,7 @@ import {
   Maximize2,
   Trash2,
   AlignLeft, AlignCenter, AlignRight,
-  BookmarkPlus, Contrast, X, Settings
+  BookmarkPlus, Contrast, X, Settings, Square
 } from 'lucide-react';
 
 type AppStatus = 'idle' | 'generating_scene' | 'error';
@@ -103,15 +103,19 @@ function trimCanvas(canvas: HTMLCanvasElement): string {
   bound.bottom = Math.min(height, bound.bottom + padding);
   bound.right = Math.min(width, bound.right + padding);
 
-  const trimHeight = bound.bottom - bound.top;
-  const trimWidth = bound.right - bound.left;
+  const trimHeight = Math.max(1, bound.bottom - bound.top);
+  const trimWidth = Math.max(1, bound.right - bound.left);
 
   const trimmed = document.createElement('canvas');
   trimmed.width = trimWidth;
   trimmed.height = trimHeight;
   const tCtx = trimmed.getContext('2d');
   if (tCtx) {
-    tCtx.putImageData(ctx.getImageData(bound.left, bound.top, trimWidth, trimHeight), 0, 0);
+    try {
+      tCtx.putImageData(ctx.getImageData(bound.left, bound.top, trimWidth, trimHeight), 0, 0);
+    } catch(e) {
+      console.warn("trimCanvas putImageData failed", e);
+    }
   }
   return trimmed.toDataURL('image/png');
 }
@@ -120,7 +124,11 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'text' | 'mark' | 'style' | '3d'>('text');
   
   // MARK MAKER
-  const [markPrompt, setMarkPrompt] = useState('龍と幾何学模様');
+  const [markPrompt, setMarkPrompt] = useState(() => localStorage.getItem('solid_typography_markPrompt') || '龍と幾何学模様');
+  useEffect(() => {
+    localStorage.setItem('solid_typography_markPrompt', markPrompt);
+  }, [markPrompt]);
+
   const [generatingMarks, setGeneratingMarks] = useState(false);
   const [generatedMarks, setGeneratedMarks] = useState<string[]>([]);
   const [stockedMarks, setStockedMarks] = useState<string[]>([]);
@@ -128,10 +136,35 @@ const App: React.FC = () => {
   const [customApiKey, setCustomApiKey] = useState('');
   const [showApiSettings, setShowApiSettings] = useState(false);
 
-  const [attachedMark, setAttachedMark] = useState<string | null>(null);
-  const [attachedMarkScale, setAttachedMarkScale] = useState(1.0);
-  const [attachedMarkOffsetX, setAttachedMarkOffsetX] = useState(0);
-  const [attachedMarkOffsetY, setAttachedMarkOffsetY] = useState(-150);
+  const [attachedMark, setAttachedMark] = useState<string | null>(() => localStorage.getItem('solid_typography_attachedMark'));
+  useEffect(() => {
+    try {
+      if (attachedMark === null) localStorage.removeItem('solid_typography_attachedMark');
+      else localStorage.setItem('solid_typography_attachedMark', attachedMark);
+    } catch(e) {
+      console.warn("Storage quota exceeded for attachedMark");
+      localStorage.removeItem('solid_typography_attachedMark');
+    }
+  }, [attachedMark]);
+
+  const [attachedMarkScale, setAttachedMarkScale] = useState(() => {
+    const s = localStorage.getItem('solid_typography_attachedMarkScale');
+    return s ? parseFloat(s) : 1.0;
+  });
+  useEffect(() => localStorage.setItem('solid_typography_attachedMarkScale', attachedMarkScale.toString()), [attachedMarkScale]);
+
+  const [attachedMarkOffsetX, setAttachedMarkOffsetX] = useState(() => {
+    const s = localStorage.getItem('solid_typography_attachedMarkOffsetX');
+    return s ? parseInt(s, 10) : 0;
+  });
+  useEffect(() => localStorage.setItem('solid_typography_attachedMarkOffsetX', attachedMarkOffsetX.toString()), [attachedMarkOffsetX]);
+
+  const [attachedMarkOffsetY, setAttachedMarkOffsetY] = useState(() => {
+    const s = localStorage.getItem('solid_typography_attachedMarkOffsetY');
+    return s ? parseInt(s, 10) : -150;
+  });
+  useEffect(() => localStorage.setItem('solid_typography_attachedMarkOffsetY', attachedMarkOffsetY.toString()), [attachedMarkOffsetY]);
+
   const attachedMarkImgRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -139,6 +172,11 @@ const App: React.FC = () => {
         const img = new Image();
         img.onload = () => {
             attachedMarkImgRef.current = img;
+            renderTextToImage();
+        };
+        img.onerror = () => {
+            console.error("Failed to load attachedMark");
+            attachedMarkImgRef.current = null;
             renderTextToImage();
         };
         img.src = attachedMark;
@@ -183,17 +221,65 @@ const App: React.FC = () => {
     handleInvert(stockedMarks[selectedStockId], undefined, selectedStockId);
   };
 
+  const handleLocalImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result && typeof e.target.result === 'string') {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_SIZE = 1024;
+          let w = img.width;
+          let h = img.height;
+          if (w > MAX_SIZE || h > MAX_SIZE) {
+            const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+            w = w * ratio;
+            h = h * ratio;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          // fill white background
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          handleStockAdd(canvas.toDataURL('image/png'));
+        };
+        img.src = e.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = ''; // reset
+  };
+
   const handleStockAdd = (base64: string) => {
     const next = [base64, ...stockedMarks].slice(0, 50);
     setStockedMarks(next);
-    localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+    
+    const saveStocksSafe = (arr: string[]) => {
+       try {
+         localStorage.setItem('solid_typography_stocks', JSON.stringify(arr));
+       } catch (e) {
+         if (arr.length > 1) {
+            saveStocksSafe(arr.slice(0, arr.length - 1));
+         } else {
+            localStorage.removeItem('solid_typography_stocks');
+         }
+       }
+    };
+    saveStocksSafe(next);
   };
 
   const handleStockRemove = (idx: number) => {
     const next = [...stockedMarks];
     next.splice(idx, 1);
     setStockedMarks(next);
-    localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+    try {
+      localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+    } catch(e) {}
   };
 
   const handleInvert = (base64: string, applyToGeneratedIdx?: number, applyToStockIdx?: number) => {
@@ -221,7 +307,9 @@ const App: React.FC = () => {
          const next = [...stockedMarks];
          next[applyToStockIdx] = inverted;
          setStockedMarks(next);
-         localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+         try {
+           localStorage.setItem('solid_typography_stocks', JSON.stringify(next));
+         } catch(e) {}
       }
     };
     img.src = base64;
@@ -286,13 +374,33 @@ const App: React.FC = () => {
   };
 
   // TEXT
-  const [prompt, setPrompt] = useState('漢字\nWATANABE');
-  const [fontMain, setFontMain] = useState(FONTS[7].value);
-  const [sizeMain, setSizeMain] = useState(160);
-  
-  const [subPrompt, setSubPrompt] = useState('BAUHAUS TYPOGRAPHY');
-  const [fontSub, setFontSub] = useState(FONTS[1].value);
-  const [sizeSub, setSizeSub] = useState(30);
+  const [prompt, setPrompt] = useState(() => localStorage.getItem('solid_typography_prompt') || '漢字\nWATANABE');
+  useEffect(() => {
+    localStorage.setItem('solid_typography_prompt', prompt);
+  }, [prompt]);
+
+  const [fontMain, setFontMain] = useState(() => localStorage.getItem('solid_typography_fontMain') || FONTS[7].value);
+  useEffect(() => localStorage.setItem('solid_typography_fontMain', fontMain), [fontMain]);
+
+  const [sizeMain, setSizeMain] = useState(() => {
+    const s = localStorage.getItem('solid_typography_sizeMain');
+    return s ? parseInt(s, 10) : 160;
+  });
+  useEffect(() => localStorage.setItem('solid_typography_sizeMain', sizeMain.toString()), [sizeMain]);
+
+  const [subPrompt, setSubPrompt] = useState(() => localStorage.getItem('solid_typography_subPrompt') || 'BAUHAUS TYPOGRAPHY');
+  useEffect(() => {
+    localStorage.setItem('solid_typography_subPrompt', subPrompt);
+  }, [subPrompt]);
+
+  const [fontSub, setFontSub] = useState(() => localStorage.getItem('solid_typography_fontSub') || FONTS[1].value);
+  useEffect(() => localStorage.setItem('solid_typography_fontSub', fontSub), [fontSub]);
+
+  const [sizeSub, setSizeSub] = useState(() => {
+    const s = localStorage.getItem('solid_typography_sizeSub');
+    return s ? parseInt(s, 10) : 30;
+  });
+  useEffect(() => localStorage.setItem('solid_typography_sizeSub', sizeSub.toString()), [sizeSub]);
 
   const [subOffsetX, setSubOffsetX] = useState(0);
   const [subOffsetY, setSubOffsetY] = useState(-60);
@@ -304,13 +412,29 @@ const App: React.FC = () => {
   // DESIGN
   const [skewX, setSkewX] = useState(0);
   const [skewY, setSkewY] = useState(0);
-  const [colorFace, setColorFace] = useState('#F0E6D2'); // Bauhaus off-white
-  const [colorSide, setColorSide] = useState('#4A4742'); // Neutral dark grey
-  const [bgColor, setBgColor] = useState('#1A1A1A'); // Dark bg
-  const [ornaments, setOrnaments] = useState([
-    { type: 'retro_wings', offsetX: 0, offsetY: -238, scale: 1.0, width: 0.8, thickness: 15, dash: 0 },
-    { type: 'horizontal_line', offsetX: 0, offsetY: 90, scale: 1.0, width: 2.2, thickness: 5, dash: 0 }
-  ]);
+  const [colorFace, setColorFace] = useState(() => localStorage.getItem('solid_typography_colorFace') || '#F0E6D2');
+  useEffect(() => localStorage.setItem('solid_typography_colorFace', colorFace), [colorFace]);
+
+  const [colorSide, setColorSide] = useState(() => localStorage.getItem('solid_typography_colorSide') || '#808080');
+  useEffect(() => localStorage.setItem('solid_typography_colorSide', colorSide), [colorSide]);
+
+  const [bgColor, setBgColor] = useState(() => localStorage.getItem('solid_typography_bgColor') || '#1A1A1A');
+  useEffect(() => localStorage.setItem('solid_typography_bgColor', bgColor), [bgColor]);
+  const [ornaments, setOrnaments] = useState<{ type: string, offsetX: number, offsetY: number, scale: number, width: number, thickness: number, dash: number }[]>(() => {
+    try {
+      const saved = localStorage.getItem('solid_typography_ornaments');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      { type: 'retro_wings', offsetX: 0, offsetY: -238, scale: 1.0, width: 0.8, thickness: 15, dash: 0 },
+      { type: 'horizontal_line', offsetX: 0, offsetY: 90, scale: 1.0, width: 2.2, thickness: 5, dash: 0 }
+    ];
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('solid_typography_ornaments', JSON.stringify(ornaments));
+    } catch (e) {}
+  }, [ornaments]);
 
   const [imageData, setImageData] = useState<string | null>(null);
   const [sceneCode, setSceneCode] = useState<string | null>(null);
@@ -328,9 +452,30 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'image' | 'scene'>('image');
   const [errorMsg, setErrorMsg] = useState('');
   const [thinkingText, setThinkingText] = useState<string | null>(null);
-  const [history, setHistory] = useState<{id: string, image: string, code: string | null, title: string, settings?: any}[]>([]);
+  const [history, setHistory] = useState<{id: string, image: string, code: string | null, title: string, settings?: any}[]>(() => {
+    try {
+      const saved = localStorage.getItem('solid_typography_history');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+  useEffect(() => {
+    const saveHistorySafe = (histArr: typeof history) => {
+      try {
+        localStorage.setItem('solid_typography_history', JSON.stringify(histArr));
+      } catch (e) {
+        if (histArr.length > 1) {
+          saveHistorySafe(histArr.slice(0, histArr.length - 1));
+        } else {
+          localStorage.removeItem('solid_typography_history');
+        }
+      }
+    };
+    saveHistorySafe(history);
+  }, [history]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
+  const aiGenerationIdRef = useRef(0);
 
   // 2D View Controls
   const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
@@ -500,11 +645,15 @@ const App: React.FC = () => {
          iframeRef.current.style.opacity = '0.5';
       }
       setTimeout(() => {
-        const code = buildThreeJsScene(imageData, effectStyle, resolution, lighting, autoRotate, colorFace, colorSide, bgColor, thickness);
-        setSceneCode(code);
+        try {
+          const code = buildThreeJsScene(imageData, effectStyle, resolution, lighting, autoRotate, colorFace, colorSide, bgColor, thickness);
+          setSceneCode(code);
+        } catch (e) {
+          console.error(e);
+        }
       }, 50);
     }
-  }, [imageData, effectStyle, resolution, autoRotate, colorFace, colorSide, bgColor, thickness]);
+  }, [imageData, effectStyle, resolution, autoRotate, colorFace, colorSide, bgColor, thickness, viewMode]);
 
   // Dynamic Lighting Update
   useEffect(() => {
@@ -557,8 +706,18 @@ const App: React.FC = () => {
     img.src = base64Image;
   };
 
+  const handleCancelAiGeneration = () => {
+    aiGenerationIdRef.current += 1;
+    setGeneratingMarks(false);
+    setThinkingText(null);
+  };
+
   const generateAiMarks = async () => {
     if (!markPrompt) return;
+    
+    aiGenerationIdRef.current += 1;
+    const currentGenerationId = aiGenerationIdRef.current;
+    
     setGeneratingMarks(true);
     setThinkingText('GENERATING MARKS VIA AI...');
     try {
@@ -572,7 +731,7 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: activeKey });
       const prompt = `[モチーフ：${markPrompt}] をテーマにしたロゴマーク。白背景に、黒一色の塗りつぶし（Solid black silhouettes）。陰影やグラデーションは一切なし。ミニマルでフラットなデザイン。2Dのベクターロゴスタイル。`;
       
-      const promises = Array.from({ length: 4 }).map(() => ai.models.generateContent({
+      const promises = Array.from({ length: 2 }).map(() => ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: prompt
       }).catch(err => {
@@ -581,6 +740,9 @@ const App: React.FC = () => {
       }));
 
       const responses = await Promise.all(promises);
+      
+      if (aiGenerationIdRef.current !== currentGenerationId) return;
+
       const newMarks: string[] = [];
       responses.forEach(res => {
          if (!res) return;
@@ -603,10 +765,19 @@ const App: React.FC = () => {
          throw new Error("画像の生成に失敗しました。時間をおいて再試行してください。");
       }
     } catch (err: any) {
-       handleError(err);
+       if (aiGenerationIdRef.current !== currentGenerationId) return;
+       
+       console.error("SDK Error details:", err);
+       if (err.message && err.message.toLowerCase().includes('quota')) {
+         handleError({ message: 'APIの無料利用枠の上限に達しました。[API設定]からご自身のGemini APIキーを設定するか、時間をおいて再試行してください。' });
+       } else {
+         handleError(err);
+       }
     } finally {
-      setGeneratingMarks(false);
-      setThinkingText(null);
+      if (aiGenerationIdRef.current === currentGenerationId) {
+        setGeneratingMarks(false);
+        setThinkingText(null);
+      }
     }
   };
 
@@ -780,8 +951,7 @@ const App: React.FC = () => {
     if(!sceneCode && activeTab === 'text') setViewMode('image');
   };
 
-  const handleExport2D = (transparent: boolean) => {
-    if (!imageData) return;
+  const executeExport = (baseImageSrc: string, transparent: boolean, prefix: string) => {
     const img = new Image();
     img.onload = () => {
       // Add padding by creating a slightly larger canvas
@@ -798,25 +968,117 @@ const App: React.FC = () => {
       ctx.drawImage(img, padding, padding);
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
-      a.download = transparent ? `solid_logo_transparent_${Date.now()}.png` : `solid_logo_solid_${Date.now()}.png`;
+      a.download = transparent ? `solid_logo_${prefix}_transparent_${Date.now()}.png` : `solid_logo_${prefix}_solid_${Date.now()}.png`;
       a.click();
     };
-    img.src = imageData;
+    img.src = baseImageSrc;
   };
 
-  const handleSave2DToCache = () => {
+  const handleExport2D = async (transparent: boolean) => {
+    if (viewMode === 'scene' && iframeRef.current?.contentWindow) {
+      const dataUrl = await new Promise<string>(resolve => {
+        let resolved = false;
+        const handler = (e: MessageEvent) => {
+          if (e.data.type === 'THUMBNAIL_DATA') {
+            window.removeEventListener('message', handler);
+            if (!resolved) {
+              resolved = true;
+              resolve(e.data.dataUrl);
+            }
+          }
+        };
+        window.addEventListener('message', handler);
+        iframeRef.current?.contentWindow?.postMessage({ type: 'REQUEST_THUMBNAIL' }, '*');
+        setTimeout(() => {
+          window.removeEventListener('message', handler);
+          if (!resolved) {
+            resolved = true;
+            resolve("");
+          }
+        }, 1000);
+      });
+      if (dataUrl) {
+         executeExport(dataUrl, transparent, '3d');
+         return;
+      }
+    }
     if (!imageData) return;
+    executeExport(imageData, transparent, '2d');
+  };
+
+  const getThumbnail = (base64: string): Promise<string> => {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const MAX_DIM = 400;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_DIM || h > MAX_DIM) {
+                const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                w *= ratio;
+                h *= ratio;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, w);
+            canvas.height = Math.max(1, h);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+               ctx.drawImage(img, 0, 0, w, h);
+               resolve(canvas.toDataURL('image/png'));
+            } else {
+               resolve(base64);
+            }
+        };
+        img.onerror = () => resolve(base64);
+        img.src = base64;
+    });
+  };
+
+  const handleSaveToCache = async () => {
+    if (!imageData) return;
+    
+    let thumb = "";
+    if (viewMode === 'scene' && iframeRef.current?.contentWindow) {
+      thumb = await new Promise<string>(resolve => {
+        let resolved = false;
+        const handler = (e: MessageEvent) => {
+          if (e.data.type === 'THUMBNAIL_DATA') {
+             window.removeEventListener('message', handler);
+             if (!resolved) {
+                 resolved = true;
+                 // It's a high-res canvas, so let's scale it down using getThumbnail
+                 getThumbnail(e.data.dataUrl).then(resolve);
+             }
+          }
+        };
+        window.addEventListener('message', handler);
+        iframeRef.current?.contentWindow?.postMessage({ type: 'REQUEST_THUMBNAIL' }, '*');
+        
+        setTimeout(() => {
+           window.removeEventListener('message', handler);
+           if (!resolved) {
+               resolved = true;
+               resolve("");
+           }
+        }, 500);
+      });
+    }
+
+    if (!thumb) {
+        thumb = await getThumbnail(imageData);
+    }
+    
     const newSnapshot = {
       id: Date.now().toString(),
-      image: imageData,
-      code: "", // using empty string to signify 2D snapshot
-      title: prompt.split('\n')[0].substring(0, 10).trim() || '2D_LOGO',
+      image: thumb,
+      code: viewMode === 'scene' ? "3d" : "",
+      title: prompt.split('\n')[0].substring(0, 10).trim() || 'CACHE',
       settings: getCurrentSettings()
     };
-    setHistory(prev => [newSnapshot, ...prev].slice(0, 5));
+    setHistory(prev => [newSnapshot, ...prev].slice(0, 4));
   };
 
-  const handleConstructScene = () => {
+  const handleConstructScene = async () => {
     if (!imageData) return;
     setStatus('generating_scene');
     setErrorMsg('');
@@ -826,16 +1088,6 @@ const App: React.FC = () => {
       setTimeout(() => {
         const code = buildThreeJsScene(imageData, effectStyle, resolution, lighting, autoRotate, colorFace, colorSide, bgColor, thickness);
         setSceneCode(code);
-
-        // Add to history
-        const newSnapshot = {
-          id: Date.now().toString(),
-          image: imageData,
-          code: code,
-          title: prompt.split('\\n')[0].substring(0, 10).trim() || 'UNNAMED_TYPO',
-          settings: getCurrentSettings()
-        };
-        setHistory(prev => [newSnapshot, ...prev].slice(0, 5));
 
         setViewMode('scene');
         setStatus('idle');
@@ -847,13 +1099,12 @@ const App: React.FC = () => {
   };
 
   const loadSnapshot = (sn: typeof history[0]) => {
-    setImageData(sn.image);
-    if (!sn.code) {
+    // We intentionally don't set imageData to sn.image because it is a low-res thumbnail.
+    if (!sn.code || sn.code === "") {
        setSceneCode(null);
        setViewMode('image');
        setActiveTab('text');
     } else {
-       setSceneCode(sn.code);
        setViewMode('scene');
     }
     
@@ -988,14 +1239,24 @@ const App: React.FC = () => {
                   placeholder="例：龍、幾何学模様、歯車など" 
                   value={markPrompt} 
                   onChange={e => setMarkPrompt(e.target.value)}
+                  disabled={generatingMarks}
                 />
-                <button 
-                  className="ss-btn ss-btn-primary border-emerald-500 text-emerald-500 bg-transparent hover:bg-emerald-500/10 mb-2 w-full flex items-center justify-center gap-2"
-                  disabled={generatingMarks || !markPrompt}
-                  onClick={generateAiMarks}
-                >
-                  {generatingMarks ? <span className="animate-pulse">GENERATING...</span> : <><Zap size={12}/>4パターン生成する</>}
-                </button>
+                {!generatingMarks ? (
+                  <button 
+                    className="ss-btn ss-btn-primary border-emerald-500 text-emerald-500 bg-transparent hover:bg-emerald-500/10 mb-2 w-full flex items-center justify-center gap-2"
+                    disabled={!markPrompt}
+                    onClick={generateAiMarks}
+                  >
+                    <Zap size={12}/>2パターン生成する
+                  </button>
+                ) : (
+                  <button 
+                    className="ss-btn ss-btn-primary border-red-500 text-red-500 bg-transparent hover:bg-red-500/10 mb-2 w-full flex items-center justify-center gap-2"
+                    onClick={handleCancelAiGeneration}
+                  >
+                    <span className="animate-pulse flex items-center justify-center gap-2 w-full"><Square fill="currentColor" size={10} /> 生成を停止</span>
+                  </button>
+                )}
                 <div className="text-[9px] text-[#4e5d74] text-center mt-1">
                   AIがモチーフから白黒のマークを生成します。
                 </div>
@@ -1041,12 +1302,17 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {stockedMarks.length > 0 && (
                 <div className="ss-panel p-3">
                   <div className="ss-label mb-3 mt-1 flex justify-between items-center">
                     <div>
                       <span className="ss-number">03</span>
                       <span className="ss-title">ストック ({stockedMarks.length})</span>
+                    </div>
+                    <div>
+                      <label className="cursor-pointer text-gray-400 hover:text-white transition-colors bg-[#1a1f26] border border-[#2d3a4d] p-1 rounded inline-flex items-center" title="画像をインポート">
+                        <Upload size={14} />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLocalImageUpload} />
+                      </label>
                     </div>
                   </div>
                   
@@ -1066,6 +1332,7 @@ const App: React.FC = () => {
                      </button>
                   </div>
 
+                  {stockedMarks.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
                     {stockedMarks.map((markBase64, idx) => {
                       const isSelected = selectedStockId === idx;
@@ -1086,8 +1353,12 @@ const App: React.FC = () => {
                       )
                     })}
                   </div>
+                  ) : (
+                    <div className="text-center py-6 text-[10px] text-gray-500 border border-dashed border-[#2d3a4d] rounded mt-2">
+                      ストックはありません。<br/>右上のボタンからアップロードできます。
+                    </div>
+                  )}
                 </div>
-              )}
             </div>
           )}
 
@@ -1701,19 +1972,19 @@ const App: React.FC = () => {
       </div>
 
       {/* FOOTER BAR */}
-      <footer className="p-3 border-t border-[var(--border-base)] bg-[#11151c] shrink-0 flex gap-3 h-[60px]">
-         <button onClick={copyToClipboard} className="flex-1 bg-[#1a212d] hover:bg-[#253041] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-gray-300 hover:text-white tracking-widest text-center flex items-center justify-center ss-btn-modern">COPY SOURCE</button>
+      <footer className="p-3 border-t border-[var(--border-base)] bg-[var(--bg-panel)] shrink-0 flex gap-3 h-[60px]">
+         <button onClick={copyToClipboard} className="flex-1 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-[var(--text-base)] hover:text-[var(--text-bright)] tracking-widest flex items-center justify-center">COPY SOURCE</button>
          
          <div className="flex-[2] flex gap-3">
-           <button onClick={() => handleExport2D(false)} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-gray-300 hover:text-white cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>PNG (SOLID)</button>
-           <button onClick={() => handleExport2D(true)} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-[#34d399] hover:text-emerald-300 cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>PNG (ALPHA)</button>
+           <button onClick={() => handleExport2D(false)} disabled={!imageData} className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? 'hover:bg-[var(--bg-btn-active)] text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer' : 'opacity-50 text-[var(--text-base)] cursor-not-allowed'}`}>PNG (SOLID)</button>
+           <button onClick={() => handleExport2D(true)} disabled={!imageData} className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? 'hover:bg-[var(--bg-btn-active)] text-emerald-500 hover:text-emerald-400 cursor-pointer' : 'opacity-50 text-[var(--text-base)] cursor-not-allowed'}`}>PNG (ALPHA)</button>
          </div>
          
-         <button onClick={handleSave2DToCache} disabled={!imageData} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${imageData ? 'hover:bg-[#253041] text-gray-300 hover:text-white cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>SAVE TO CACHE</button>
+         <button onClick={handleSaveToCache} disabled={!imageData} className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? 'hover:bg-[var(--bg-btn-active)] text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer' : 'opacity-50 text-[var(--text-base)] cursor-not-allowed'}`}>SAVE TO CACHE</button>
          
-         <button onClick={() => {setSceneCode(null); setViewMode('image'); setHistory([]);}} className="flex-1 bg-[#1a212d] hover:bg-[#253041] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-gray-300 hover:text-white tracking-widest text-center flex items-center justify-center ss-btn-modern">CLEAR CACHE</button>
+         <button onClick={() => {setSceneCode(null); setViewMode('image'); setHistory([]);}} className="flex-1 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-red-500 hover:text-red-400 tracking-widest flex items-center justify-center">CLEAR CACHE</button>
          
-         <button onClick={downloadSceneHtml} disabled={!sceneCode} className={`flex-1 bg-[#1a212d] border border-t-[#2d3a4d] border-x-[#1f2838] border-b-[#0f141c] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest text-center flex items-center justify-center ss-btn-modern ${sceneCode ? 'hover:bg-[#253041] text-[#60a5fa] hover:text-blue-300 cursor-pointer' : 'opacity-50 text-gray-600 cursor-not-allowed'}`}>EXPORT 3D</button>
+         <button onClick={downloadSceneHtml} disabled={!sceneCode} className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${sceneCode ? 'hover:bg-[var(--bg-btn-active)] text-blue-500 hover:text-blue-400 cursor-pointer' : 'opacity-50 text-[var(--text-base)] cursor-not-allowed'}`}>EXPORT 3D</button>
       </footer>
 
       {/* DEBUG STRIP */}
