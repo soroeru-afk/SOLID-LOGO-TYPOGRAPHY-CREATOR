@@ -74,6 +74,18 @@
     --text-bright: #e2f0e8;
   }
 
+  [data-theme='WHITE'] {
+    --bg-main: #edf1f5;
+    --bg-panel: #ffffff;
+    --bg-input: #f8fafc;
+    --bg-btn: #ffffff;
+    --bg-btn-active: #e2e8f0;
+    --border-base: #cbd5e1;
+    --text-base: #64748b;
+    --text-bright: #0f172a;
+    --accent: #94a3b8;
+  }
+
   body {
     background-color: var(--bg-main, #0a0c10);
     color: var(--text-base, #8a95a3);
@@ -116,7 +128,11 @@
     background-color: var(--bg-btn, #1a1f26);
     border: 1px solid var(--border-base, #1e252e);
     color: var(--text-base, #8a95a3);
-    @apply flex-1 p-2 font-mono text-[10px] font-bold uppercase transition-all hover:opacity-80 hover:text-white active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed;
+    @apply flex-1 p-2 font-mono text-[10px] font-bold uppercase transition-all hover:opacity-80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed;
+  }
+
+  .ss-btn:hover {
+    color: var(--text-bright, #ffffff);
   }
 
   .ss-btn-active {
@@ -132,7 +148,17 @@
   .ss-input {
     background-color: var(--bg-input, #080a0d);
     border: 1px solid var(--border-base, #1e252e);
-    @apply w-full text-white p-3 font-mono text-xs focus:border-[#4d5e7a] focus:ring-0 outline-none transition-all placeholder:text-[#2d3a4d];
+    color: var(--text-bright, #e2e8f0);
+    @apply w-full p-3 font-mono text-xs focus:ring-0 outline-none transition-all;
+  }
+  
+  .ss-input:focus {
+    border-color: var(--text-bright, #e2e8f0);
+  }
+
+  .ss-input::placeholder {
+    color: var(--text-base, #8a95a3);
+    opacity: 0.5;
   }
 
   .ss-tab {
@@ -141,17 +167,30 @@
     border-left: 1px solid var(--border-base, #1e252e);
     border-right: 1px solid var(--border-base, #1e252e);
     color: var(--text-base, #8a95a3);
-    @apply px-4 py-1.5 font-mono text-[10px] font-bold uppercase flex items-center gap-2 cursor-pointer transition-all hover:text-white;
+    @apply px-4 py-1.5 font-mono text-[10px] font-bold uppercase flex items-center gap-2 cursor-pointer transition-all hover:opacity-80;
   }
 
   .ss-tab-active {
-    @apply bg-white text-black border-white hover:text-black;
+    background-color: var(--bg-btn-active, #2d3640);
+    color: var(--text-bright, #e2e8f0);
+    border-color: var(--text-bright, #e2e8f0);
+    @apply hover:opacity-100;
   }
   
   .ss-select {
     background-color: var(--bg-btn, #1a1f26);
     border: 1px solid var(--border-base, #1e252e);
-    @apply text-white text-[10px] p-2 outline-none font-mono font-bold tracking-widest uppercase focus:border-[#4d5e7a];
+    color: var(--text-bright, #ffffff);
+    @apply text-[10px] p-2 outline-none font-mono font-bold tracking-widest uppercase;
+  }
+
+  .ss-select:focus {
+    border-color: var(--text-bright, #ffffff);
+  }
+
+  .ss-select option {
+    background-color: var(--bg-main, #0a0c10);
+    color: var(--text-bright, #ffffff);
   }
 
   .ss-status-bar {

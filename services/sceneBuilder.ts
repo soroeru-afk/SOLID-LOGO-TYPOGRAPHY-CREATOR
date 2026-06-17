@@ -4,10 +4,14 @@ export const buildThreeJsScene = (
   resolution: number,
   lighting: number,
   autoRotate: boolean,
-  colorFace: string,
+  palette: string[],
   colorSide: string,
   bgColor: string,
-  thickness: number
+  thickness: number,
+  isTransparent: boolean = false,
+  imageZoom: number = 1.0,
+  imagePanX: number = 0,
+  imagePanY: number = 0
 ): string => {
   return `<!DOCTYPE html>
 <html>
@@ -37,15 +41,21 @@ export const buildThreeJsScene = (
   const EFFECT = '${effectId}';
   const RESOLUTION = ${resolution};
   const AUTO_ROTATE = ${autoRotate};
-  const COLOR_FACE = parseInt('${colorFace}'.replace('#', '0x'));
-  const COLOR_SIDE = parseInt('${colorSide}'.replace('#', '0x'));
-  const BG_COLOR = parseInt('${bgColor}'.replace('#', '0x'));
+  const RAW_PALETTE = ${JSON.stringify(palette)}.filter(c => c && typeof c === 'string' && c.startsWith('#'));
+  const PALETTE = RAW_PALETTE.length > 0 ? RAW_PALETTE.map(c => parseInt(c.replace('#', '0x'))) : [0xffffff];
+  const COLOR_SIDE = parseInt(('${colorSide}' || '#000000').replace('#', '0x'));
+  const BG_COLOR = parseInt(('${bgColor}' || '#000000').replace('#', '0x'));
   const THICKNESS = ${thickness};
+  const IS_TRANSPARENT = ${isTransparent};
   let LIGHTING = ${lighting};
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BG_COLOR);
-  scene.fog = new THREE.FogExp2(BG_COLOR, 0.002);
+  if (IS_TRANSPARENT) {
+    scene.background = null;
+  } else {
+    scene.background = new THREE.Color(BG_COLOR);
+    scene.fog = new THREE.FogExp2(BG_COLOR, 0.002);
+  }
 
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
   camera.position.set(0, 0, RESOLUTION * 1.5);
@@ -114,104 +124,137 @@ export const buildThreeJsScene = (
     const idata = ctx.getImageData(0,0,w,h);
     const data = idata.data;
 
-    let points = [];
+    let colorGroups = {};
+    PALETTE.forEach(c => colorGroups[c] = []);
+
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = (y*w + x) * 4;
         const a = data[idx+3];
         
-        if (a > 128) {
+        if (a > 200) {
            const px = (x - w/2);
            const py = -(y - h/2);
-           points.push(new THREE.Vector3(px, py, 0));
+           const r = data[idx];
+           const g = data[idx+1];
+           const b = data[idx+2];
+           
+           let minDist = Infinity;
+           let nearestHex = PALETTE[0];
+           for (let p=0; p<PALETTE.length; p++) {
+               const hex = PALETTE[p];
+               const pr = (hex >> 16) & 255;
+               const pg = (hex >> 8) & 255;
+               const pb = hex & 255;
+               const dist = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
+               if (dist < minDist) {
+                   minDist = dist;
+                   nearestHex = hex;
+               }
+           }
+           colorGroups[nearestHex].push(new THREE.Vector3(px, py, 0));
         }
       }
     }
 
-    if (points.length === 0) return;
+    const groupKeys = Object.keys(colorGroups).filter(k => colorGroups[k].length > 0);
+    if (groupKeys.length === 0) return;
 
     const group = new THREE.Group();
     scene.add(group);
 
     const dummy = new THREE.Object3D();
 
-    if (EFFECT === 'solid_voxel') {
-       const geometry = new THREE.BoxGeometry(0.9, 0.9, THICKNESS);
-       const matFace = new THREE.MeshStandardMaterial({ 
-         color: COLOR_FACE, roughness: 0.8, metalness: 0.0 
-       });
-       const matSide = new THREE.MeshStandardMaterial({ 
-         color: COLOR_SIDE, roughness: 0.9, metalness: 0.0 
-       });
-       const materials = [matSide, matSide, matSide, matSide, matFace, matFace];
-       
-       instancedMesh = new THREE.InstancedMesh(geometry, materials, points.length);
-       
-       points.forEach((p, i) => {
-         dummy.position.copy(p);
-         dummy.updateMatrix();
-         instancedMesh.setMatrixAt(i, dummy.matrix);
-       });
-       group.add(instancedMesh);
-    } 
-    else if (EFFECT === 'wireframe_block') {
-       const geometry = new THREE.BoxGeometry(1, 1, THICKNESS);
-       const material = new THREE.MeshBasicMaterial({ 
-         color: COLOR_FACE,
-         wireframe: true,
-         transparent: true,
-         opacity: 0.6
-       });
-       instancedMesh = new THREE.InstancedMesh(geometry, material, points.length);
-       points.forEach((p, i) => {
-         dummy.position.copy(p);
-         dummy.updateMatrix();
-         instancedMesh.setMatrixAt(i, dummy.matrix);
-       });
-       group.add(instancedMesh);
-    }
-    else if (EFFECT === 'dot_matrix') {
-       const geometry = new THREE.SphereGeometry(0.4, 12, 12);
-       const material = new THREE.MeshStandardMaterial({ 
-         color: COLOR_FACE,
-         roughness: 0.5,
-         metalness: 0.0
-       });
-       instancedMesh = new THREE.InstancedMesh(geometry, material, points.length);
-       points.forEach((p, i) => {
-         dummy.position.copy(p);
-         dummy.updateMatrix();
-         instancedMesh.setMatrixAt(i, dummy.matrix);
-       });
-       group.add(instancedMesh);
-    }
-    else if (EFFECT === 'clean_flat') {
-       const geometry = new THREE.BoxGeometry(1.05, 1.05, THICKNESS);
-       const matFace = new THREE.MeshStandardMaterial({ 
-         color: COLOR_FACE, roughness: 0.8, metalness: 0.0 
-       });
-       const matSide = new THREE.MeshStandardMaterial({ 
-         color: COLOR_SIDE, roughness: 0.8, metalness: 0.0 
-       });
-       const materials = [matSide, matSide, matSide, matSide, matFace, matFace];
-       
-       instancedMesh = new THREE.InstancedMesh(geometry, materials, points.length);
-       points.forEach((p, i) => {
-         dummy.position.copy(p);
-         dummy.updateMatrix();
-         instancedMesh.setMatrixAt(i, dummy.matrix);
-       });
-       group.add(instancedMesh);
-    }
+    groupKeys.forEach(hexStr => {
+      const hexColor = parseInt(hexStr);
+      const points = colorGroups[hexColor];
+      let instancedMesh;
+
+      if (EFFECT === 'solid_voxel') {
+         const geometry = new THREE.BoxGeometry(0.9, 0.9, THICKNESS);
+         const matFace = new THREE.MeshStandardMaterial({ 
+           color: hexColor, roughness: 0.8, metalness: 0.0 
+         });
+         const matSide = new THREE.MeshStandardMaterial({ 
+           color: COLOR_SIDE, roughness: 0.9, metalness: 0.0 
+         });
+         const materials = [matSide, matSide, matSide, matSide, matFace, matFace];
+         
+         instancedMesh = new THREE.InstancedMesh(geometry, materials, points.length);
+         
+         points.forEach((p, i) => {
+           dummy.position.copy(p);
+           dummy.updateMatrix();
+           instancedMesh.setMatrixAt(i, dummy.matrix);
+         });
+         group.add(instancedMesh);
+      } 
+      else if (EFFECT === 'wireframe_block') {
+         const geometry = new THREE.BoxGeometry(1, 1, THICKNESS);
+         const material = new THREE.MeshBasicMaterial({ 
+           color: hexColor,
+           wireframe: true,
+           transparent: true,
+           opacity: 0.6
+         });
+         instancedMesh = new THREE.InstancedMesh(geometry, material, points.length);
+         points.forEach((p, i) => {
+           dummy.position.copy(p);
+           dummy.updateMatrix();
+           instancedMesh.setMatrixAt(i, dummy.matrix);
+         });
+         group.add(instancedMesh);
+      }
+      else if (EFFECT === 'dot_matrix') {
+         const geometry = new THREE.SphereGeometry(0.4, 12, 12);
+         const material = new THREE.MeshStandardMaterial({ 
+           color: hexColor,
+           roughness: 0.5,
+           metalness: 0.0
+         });
+         instancedMesh = new THREE.InstancedMesh(geometry, material, points.length);
+         points.forEach((p, i) => {
+           dummy.position.copy(p);
+           dummy.updateMatrix();
+           instancedMesh.setMatrixAt(i, dummy.matrix);
+         });
+         group.add(instancedMesh);
+      }
+      else if (EFFECT === 'clean_flat') {
+         const geometry = new THREE.BoxGeometry(1.05, 1.05, THICKNESS);
+         const matFace = new THREE.MeshStandardMaterial({ 
+           color: hexColor, roughness: 0.8, metalness: 0.0 
+         });
+         const matSide = new THREE.MeshStandardMaterial({ 
+           color: COLOR_SIDE, roughness: 0.8, metalness: 0.0 
+         });
+         const materials = [matSide, matSide, matSide, matSide, matFace, matFace];
+         
+         instancedMesh = new THREE.InstancedMesh(geometry, materials, points.length);
+         points.forEach((p, i) => {
+           dummy.position.copy(p);
+           dummy.updateMatrix();
+           instancedMesh.setMatrixAt(i, dummy.matrix);
+         });
+         group.add(instancedMesh);
+      }
+    });
 
     const box = new THREE.Box3().setFromObject(group);
-    const center = box.getCenter(new THREE.Vector3());
-    group.position.sub(center);
     
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y);
-    camera.position.z = maxDim * 1.2;
-    controls.target.set(0,0,0);
+    // We calculate camera distance directly from the mathematically required distance to match scaled 2D canvas exactly.
+    const baseScale2D = 0.5;
+    const finalScale2D = baseScale2D * ${imageZoom};
+    const pixelsPerUnit = (img.width * finalScale2D) / w;
+    
+    const panUnitX = -(${imagePanX}) / pixelsPerUnit;
+    const panUnitY = (${imagePanY}) / pixelsPerUnit;
+
+    const distToFront = window.innerHeight / (2 * Math.tan(22.5 * Math.PI / 180) * pixelsPerUnit);
+    
+    camera.position.set(panUnitX, panUnitY, distToFront + (THICKNESS / 2));
+    controls.target.set(panUnitX, panUnitY, 0);
+    controls.update();
   };
 
   window.addEventListener('resize', () => {
