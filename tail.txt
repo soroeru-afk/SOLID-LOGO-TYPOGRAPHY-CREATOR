@@ -1,0 +1,120 @@
+                      title={sn.title}
+                    >
+                      {sn.title}
+                    </span>
+                    <button
+                      className="ml-1 p-1 hover:text-red-500 hover:bg-black/50 rounded flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHistory((h) =>
+                          h.filter((item) => item.id !== sn.id),
+                        );
+                      }}
+                      title="Remove from history"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex-1 border border-dashed border-[#1d2533] p-4 flex items-center justify-center opacity-30">
+                <span className="text-[9px] text-[var(--border-base)] rotate-90 uppercase tracking-widest">
+                  Cache_Empty
+                </span>
+              </div>
+            )}
+          
+              </>
+            )}
+          </div>
+</aside>
+      </div>
+
+      {/* FOOTER BAR */}
+      <footer className="p-3 border-t border-[var(--border-base)] bg-[var(--bg-panel)] shrink-0 flex gap-3 h-[60px]">
+        <button
+          onClick={copyToClipboard}
+          title="3Dモデルを描画するHTMLソースコードをクリップボードにコピーします"
+          className="flex-1 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-[var(--text-base)] hover:text-[var(--text-bright)] tracking-widest flex items-center justify-center"
+        >
+          COPY 3D SOURCE
+        </button>
+
+        <div className="flex-[2] flex gap-3">
+          <button
+            onClick={() => handleExport2D(false)}
+            title="背景色を含めたPNG画像としてダウンロードします"
+            disabled={!imageData}
+            className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? "hover:bg-[var(--bg-btn-active)] text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+          >
+            PNG (SOLID)
+          </button>
+          <button
+            onClick={() => handleExport2D(true)}
+            title="背景を透過したPNG画像としてダウンロードします"
+            disabled={!imageData}
+            className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? "hover:bg-[var(--bg-btn-active)] text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+          >
+            PNG (ALPHA)
+          </button>
+        </div>
+
+        <button
+          onClick={handleSaveToCache}
+          title="現在の3D設定と画像をキャッシュに保存します"
+          disabled={!imageData}
+          className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${imageData ? "hover:bg-[var(--bg-btn-active)] text-[var(--active-color)] hover:opacity-80 cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+        >
+          SAVE TO CACHE
+        </button>
+
+        <button
+          onClick={() => {
+            setSceneCode(null);
+            setViewMode("image");
+            setHistory([]);
+          }}
+          title="キャッシュと3Dプレビューをリセットします"
+          className="flex-1 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-red-500 hover:text-red-400 tracking-widest flex items-center justify-center"
+        >
+          CLEAR CACHE
+        </button>
+
+        <button
+          onClick={downloadSceneHtml}
+          title="3DモデルをHTMLファイルとしてエクスポートします"
+          disabled={!sceneCode}
+          className={`flex-1 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center ${sceneCode ? "hover:bg-[var(--bg-btn-active)] text-blue-500 hover:text-blue-400 cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+        >
+          EXPORT 3D
+        </button>
+      </footer>
+
+      {/* DEBUG STRIP */}
+      <div className="ss-status-bar h-5 shrink-0 px-6 bg-[var(--bg-panel)] border-t border-[var(--border-base)] flex items-center">
+        <div className="flex gap-6 flex-1 text-[var(--text-bright)]">
+          <span className="flex items-center gap-1 text-[var(--active-color)] uppercase font-bold">
+            <CheckCircle2 size={10} /> KERNEL_ACTIVE
+          </span>
+          <span className="opacity-90 font-bold">
+            NODE_LOAD: {status === "idle" ? "1.84%" : "94.12%"}
+          </span>
+          <span className="opacity-90 uppercase font-bold">
+            Canvas: {resolution}px Grid
+          </span>
+          {errorMsg && (
+            <span className="text-red-500 opacity-100 uppercase">
+              {errorMsg}
+            </span>
+          )}
+        </div>
+        <div className="text-[var(--text-bright)] opacity-90 text-[9px] tracking-widest uppercase font-bold">
+          © 2026 SOLID_TYPOGRAPHY
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;

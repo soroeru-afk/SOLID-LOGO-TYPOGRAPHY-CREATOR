@@ -11,7 +11,7 @@ export const buildThreeJsScene = (
   isTransparent: boolean = false,
   imageZoom: number = 1.0,
   imagePanX: number = 0,
-  imagePanY: number = 0
+  imagePanY: number = 0,
 ): string => {
   return `<!DOCTYPE html>
 <html>
@@ -54,7 +54,6 @@ export const buildThreeJsScene = (
     scene.background = null;
   } else {
     scene.background = new THREE.Color(BG_COLOR);
-    scene.fog = new THREE.FogExp2(BG_COLOR, 0.002);
   }
 
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
@@ -132,7 +131,7 @@ export const buildThreeJsScene = (
         const idx = (y*w + x) * 4;
         const a = data[idx+3];
         
-        if (a > 200) {
+        if (a > 64) {
            const px = (x - w/2);
            const py = -(y - h/2);
            const r = data[idx];
@@ -171,7 +170,7 @@ export const buildThreeJsScene = (
       let instancedMesh;
 
       if (EFFECT === 'solid_voxel') {
-         const geometry = new THREE.BoxGeometry(0.9, 0.9, THICKNESS);
+         const geometry = new THREE.BoxGeometry(0.95, 0.95, THICKNESS);
          const matFace = new THREE.MeshStandardMaterial({ 
            color: hexColor, roughness: 0.8, metalness: 0.0 
          });
@@ -220,6 +219,28 @@ export const buildThreeJsScene = (
          });
          group.add(instancedMesh);
       }
+      else if (EFFECT === 'dot_matrix_3d') {
+         const geometry = new THREE.CylinderGeometry(0.4, 0.4, THICKNESS, 16);
+         geometry.rotateX(Math.PI / 2);
+         const faceColorObj = new THREE.Color(hexColor);
+         const sideColorObj = faceColorObj.clone().multiplyScalar(0.6); // 60% brightness
+         
+         const matFace = new THREE.MeshStandardMaterial({ 
+           color: hexColor, roughness: 0.5, metalness: 0.0 
+         });
+         const matSide = new THREE.MeshStandardMaterial({ 
+           color: sideColorObj.getHex(), roughness: 0.7, metalness: 0.0 
+         });
+         const materials = [matSide, matFace, matFace];
+         
+         instancedMesh = new THREE.InstancedMesh(geometry, materials, points.length);
+         points.forEach((p, i) => {
+           dummy.position.copy(p);
+           dummy.updateMatrix();
+           instancedMesh.setMatrixAt(i, dummy.matrix);
+         });
+         group.add(instancedMesh);
+      }
       else if (EFFECT === 'clean_flat') {
          const geometry = new THREE.BoxGeometry(1.05, 1.05, THICKNESS);
          const matFace = new THREE.MeshStandardMaterial({ 
@@ -246,15 +267,17 @@ export const buildThreeJsScene = (
     const baseScale2D = 0.5;
     const finalScale2D = baseScale2D * ${imageZoom};
     const pixelsPerUnit = (img.width * finalScale2D) / w;
-    
     const panUnitX = -(${imagePanX}) / pixelsPerUnit;
     const panUnitY = (${imagePanY}) / pixelsPerUnit;
-
     const distToFront = window.innerHeight / (2 * Math.tan(22.5 * Math.PI / 180) * pixelsPerUnit);
     
     camera.position.set(panUnitX, panUnitY, distToFront + (THICKNESS / 2));
     controls.target.set(panUnitX, panUnitY, 0);
     controls.update();
+
+    if (!IS_TRANSPARENT) {
+       scene.fog = new THREE.Fog(BG_COLOR, distToFront * 0.8, distToFront * 3.0);
+    }
   };
 
   window.addEventListener('resize', () => {
