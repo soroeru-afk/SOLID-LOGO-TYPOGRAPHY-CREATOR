@@ -2942,7 +2942,7 @@ const App: React.FC = () => {
                                 setOrnaments(newOrn);
                               }}
                               className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                              title="Move Up (Render Below)"
+                              title="Move Up (Render Above)"
                             >
                               <ArrowUp size={12} />
                             </button>
@@ -2959,7 +2959,7 @@ const App: React.FC = () => {
                                 setOrnaments(newOrn);
                               }}
                               className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                              title="Move Down (Render Above)"
+                              title="Move Down (Render Below)"
                             >
                               <ArrowDown size={12} />
                             </button>
