@@ -1107,6 +1107,7 @@ const App: React.FC = () => {
   ]);
   const [ornaments, setOrnaments] = useState<
     {
+      id: number;
       type: string;
       offsetX: number;
       offsetY: number;
@@ -1122,9 +1123,14 @@ const App: React.FC = () => {
     try {
       const saved = localStorage.getItem("solid_typography_ornaments");
       if (saved) {
-        const parsed = JSON.parse(saved);
+        let parsed = JSON.parse(saved);
+        parsed = parsed.map((p: any, i: number) => ({
+          ...p,
+          id: p.id || i + 1,
+        }));
         while (parsed.length < 3) {
           parsed.push({
+            id: parsed.length + 1,
             type: "none",
             offsetX: 0,
             offsetY: parsed.length === 1 ? 90 : -90,
@@ -1140,6 +1146,7 @@ const App: React.FC = () => {
     } catch (e) {}
     return [
       {
+        id: 1,
         type: "solid_circle",
         offsetX: 0,
         offsetY: 0,
@@ -1150,6 +1157,7 @@ const App: React.FC = () => {
         color: "#000000",
       },
       {
+        id: 2,
         type: "none",
         offsetX: 0,
         offsetY: 90,
@@ -1160,6 +1168,7 @@ const App: React.FC = () => {
         color: "#000000",
       },
       {
+        id: 3,
         type: "none",
         offsetX: 0,
         offsetY: -90,
@@ -1637,6 +1646,7 @@ const App: React.FC = () => {
     setBgColor("#FFFFFF");
     setOrnaments([
       {
+        id: 1,
         type: "solid_circle",
         offsetX: 0,
         offsetY: 0,
@@ -1644,8 +1654,10 @@ const App: React.FC = () => {
         width: 1.0,
         thickness: 13,
         dash: 15,
+        color: "#000000",
       },
       {
+        id: 2,
         type: "none",
         offsetX: 0,
         offsetY: 90,
@@ -1653,6 +1665,18 @@ const App: React.FC = () => {
         width: 2.2,
         thickness: 5,
         dash: 0,
+        color: "#000000",
+      },
+      {
+        id: 3,
+        type: "none",
+        offsetX: 0,
+        offsetY: -90,
+        scale: 1.0,
+        width: 2.2,
+        thickness: 5,
+        dash: 0,
+        color: "#000000",
       },
     ]);
     setResolution(512);
@@ -1668,6 +1692,7 @@ const App: React.FC = () => {
     setAttachedMark(null);
     setOrnaments([
       {
+        id: 1,
         type: "none",
         offsetX: 0,
         offsetY: 0,
@@ -1675,8 +1700,10 @@ const App: React.FC = () => {
         width: 1.0,
         thickness: 13,
         dash: 15,
+        color: "#000000",
       },
       {
+        id: 2,
         type: "none",
         offsetX: 0,
         offsetY: 90,
@@ -1684,6 +1711,18 @@ const App: React.FC = () => {
         width: 2.2,
         thickness: 5,
         dash: 0,
+        color: "#000000",
+      },
+      {
+        id: 3,
+        type: "none",
+        offsetX: 0,
+        offsetY: -90,
+        scale: 1.0,
+        width: 2.2,
+        thickness: 5,
+        dash: 0,
+        color: "#000000",
       },
     ]);
   };
@@ -2152,8 +2191,9 @@ const App: React.FC = () => {
       ctx.shadowOffsetY = shadowOffsetY;
     }
 
-    // Ornaments
-    ornaments.forEach((o) => {
+    // Ornaments (Render from last/bottom to first/top of array so index 0 is on top)
+    for (let i = ornaments.length - 1; i >= 0; i--) {
+      const o = ornaments[i];
       if (o.type !== "none") {
         ctx.save();
         ctx.translate(o.offsetX, o.offsetY);
@@ -2209,7 +2249,7 @@ const App: React.FC = () => {
 
         ctx.restore();
       }
-    });
+    }
 
     ctx.textBaseline = "middle";
     ctx.textAlign = textAlign;
@@ -2875,8 +2915,8 @@ const App: React.FC = () => {
                             )}
                           </span>
                           <span className="ss-title whitespace-nowrap flex-shrink-0">
-                            {t(`labelOrnament${idx + 1}` as any) ||
-                              `ORNAMENT ${idx + 1}`}
+                            {t(`labelOrnament${ornament.id}` as any) ||
+                              `ORNAMENT ${ornament.id}`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -2884,7 +2924,7 @@ const App: React.FC = () => {
                             onClick={() => {
                               setCollapsedOrnaments((prev) => {
                                 const next = [...prev];
-                                next[idx] = !next[idx];
+                                  next[idx] = !next[idx];
                                 return next;
                               });
                             }}
@@ -2930,6 +2970,7 @@ const App: React.FC = () => {
                             onClick={() => {
                               const newOrn = [...ornaments];
                               newOrn[idx] = {
+                                id: ornament.id,
                                 type: "none",
                                 offsetX: 0,
                                 offsetY: 0,
@@ -3968,8 +4009,8 @@ const App: React.FC = () => {
                             key={idx}
                             className="flex-1 flex flex-col items-start text-[8px] text-[var(--text-base)]"
                           >
-                            {t(`labelOrnament${idx + 1}` as any) ||
-                              `ORN ${idx + 1}`}
+                            {t(`labelOrnament${ornament.id}` as any) ||
+                              `ORN ${ornament.id}`}
                             <div className="flex w-full mt-1 bg-[var(--bg-panel)] p-1 rounded-sm border border-[var(--border-base)]">
                               <input
                                 type="color"
