@@ -386,7 +386,7 @@ const ORNAMENTS = [
 const ResetBtn = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1"
+    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1 w-6 h-6 shrink-0 flex justify-center items-center"
     title="Reset"
   >
     <RotateCcw size={10} />
@@ -2749,20 +2749,25 @@ const App: React.FC = () => {
                         <div className="flex items-center gap-2 flex-1">
                           <span className="ss-number">01</span>
                           <span className="ss-title">AI MARK</span>
-                          <button
-                            onClick={() => setAttachedMark(null)}
-                            className="opacity-50 hover:opacity-100 p-1 transition-opacity text-[var(--text-base)] hover:text-white mr-1"
-                            title={t("markDeleteTooltip")}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                          <div className="flex-1"></div>
+                        </div>
+                        <div className="flex gap-2">
                           <button
                             onClick={() => setCollapsedMark(!collapsedMark)}
-                            className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
-                            {collapsedMark ? "＋" : "−"}
+                            {collapsedMark ? <Plus size={14} /> : <Minus size={14} />}
                           </button>
+                          <div className="flex items-center gap-1">
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <button
+                              onClick={() => setAttachedMark(null)}
+                              className="opacity-50 hover:opacity-100 p-1 w-6 h-6 shrink-0 flex justify-center items-center transition-opacity text-[var(--text-base)] hover:text-white"
+                              title={t("markDeleteTooltip")}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {!collapsedMark && (
@@ -2881,11 +2886,11 @@ const App: React.FC = () => {
                                 return next;
                               });
                             }}
-                            className="p-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100 mr-2"
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
-                            {collapsedOrnaments[idx] ? "＋" : "−"}
+                            {collapsedOrnaments[idx] ? <Plus size={14} /> : <Minus size={14} />}
                           </button>
-                          {idx > 0 && (
+                          {idx > 0 ? (
                             <button
                               onClick={() => {
                                 const newOrn = [...ornaments];
@@ -2894,13 +2899,15 @@ const App: React.FC = () => {
                                 newOrn[idx] = temp;
                                 setOrnaments(newOrn);
                               }}
-                              className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                              className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                               title="Move Up (Render Below)"
                             >
-                              ↑
+                              <ArrowUp size={12} />
                             </button>
+                          ) : (
+                            <div className="w-6 h-6 shrink-0"></div>
                           )}
-                          {idx < ornaments.length - 1 && (
+                          {idx < ornaments.length - 1 ? (
                             <button
                               onClick={() => {
                                 const newOrn = [...ornaments];
@@ -2909,11 +2916,13 @@ const App: React.FC = () => {
                                 newOrn[idx] = temp;
                                 setOrnaments(newOrn);
                               }}
-                              className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                              className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                               title="Move Down (Render Above)"
                             >
-                              ↓
+                              <ArrowDown size={12} />
                             </button>
+                          ) : (
+                            <div className="w-6 h-6 shrink-0"></div>
                           )}
                           <ResetBtn
                             onClick={() => {
@@ -3174,14 +3183,20 @@ const App: React.FC = () => {
                         <span className="ss-title flex-shrink-0">
                           {t("labelMainText")}
                         </span>
-                        <div className="flex-1"></div>
-                        <button
-                          onClick={() => setCollapsedMain(!collapsedMain)}
-                          className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                        >
-                          {collapsedMain ? "＋" : "−"}
-                        </button>
-                      </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setCollapsedMain(!collapsedMain)}
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          >
+                            {collapsedMain ? <Plus size={14} /> : <Minus size={14} />}
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                          </div>
+                        </div>
                     </div>
                     {!collapsedMain && (
                       <>
@@ -3333,14 +3348,20 @@ const App: React.FC = () => {
                         <span className="ss-title flex-shrink-0">
                           {t("labelSubText")}
                         </span>
-                        <div className="flex-1"></div>
-                        <button
-                          onClick={() => setCollapsedSub(!collapsedSub)}
-                          className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                        >
-                          {collapsedSub ? "＋" : "−"}
-                        </button>
-                      </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setCollapsedSub(!collapsedSub)}
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          >
+                            {collapsedSub ? <Plus size={14} /> : <Minus size={14} />}
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                          </div>
+                        </div>
                     </div>
                     {!collapsedSub && (
                       <>
