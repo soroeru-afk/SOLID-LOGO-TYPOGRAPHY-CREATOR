@@ -145,6 +145,7 @@ const TRANSLATIONS = {
     btnApply: "Apply",
     labelAttachedBase: "Attached Base Image",
     labelScale: "Scale",
+    labelGlobalScale: "GLOBAL SCALE",
     labelOffsetX: "Offset X",
     labelOffsetY: "Offset Y",
     labelOffset: "PLACEMENT OFFSET",
@@ -295,6 +296,7 @@ const TRANSLATIONS = {
     btnApply: "適用",
     labelAttachedBase: "貼り付けられたベース画像",
     labelScale: "スケール",
+    labelGlobalScale: "全体スケール",
     labelOffsetX: "オフセット X",
     labelOffsetY: "オフセット Y",
     labelOffset: "配置オフセット",
@@ -904,6 +906,18 @@ const App: React.FC = () => {
       ),
     [globalOffsetY],
   );
+  const [globalScale, setGlobalScale] = useState(() => {
+    const saved = localStorage.getItem("solid_typography_globalScale");
+    return saved !== null ? Number(saved) : 1.0;
+  });
+  useEffect(
+    () =>
+      localStorage.setItem(
+        "solid_typography_globalScale",
+        globalScale.toString(),
+      ),
+    [globalScale],
+  );
   const [mainOffsetX, setMainOffsetX] = useState(() => {
     const saved = localStorage.getItem("solid_typography_mainOffsetX");
     return saved !== null ? Number(saved) : 0;
@@ -1363,6 +1377,7 @@ const App: React.FC = () => {
     if (setts.subPrompt !== undefined) setSubPrompt(setts.subPrompt);
     if (setts.fontSub !== undefined) setFontSub(setts.fontSub);
     if (setts.sizeSub !== undefined) setSizeSub(setts.sizeSub);
+    if (setts.globalScale !== undefined) setGlobalScale(setts.globalScale);
     if (setts.globalOffsetX !== undefined)
       setGlobalOffsetX(setts.globalOffsetX);
     if (setts.globalOffsetY !== undefined)
@@ -1410,6 +1425,7 @@ const App: React.FC = () => {
     subPrompt,
     fontSub,
     sizeSub,
+    globalScale,
     globalOffsetX,
     globalOffsetY,
     mainOffsetX,
@@ -1477,6 +1493,8 @@ const App: React.FC = () => {
         if (settings.subPrompt !== undefined) setSubPrompt(settings.subPrompt);
         if (settings.fontSub !== undefined) setFontSub(settings.fontSub);
         if (settings.sizeSub !== undefined) setSizeSub(settings.sizeSub);
+        if (settings.globalScale !== undefined)
+          setGlobalScale(settings.globalScale);
         if (settings.globalOffsetX !== undefined)
           setGlobalOffsetX(settings.globalOffsetX);
         if (settings.globalOffsetY !== undefined)
@@ -1721,6 +1739,7 @@ const App: React.FC = () => {
     colorMain,
     colorSub,
     colorMark,
+    globalScale,
     globalOffsetX,
     globalOffsetY,
     mainOffsetX,
@@ -1811,6 +1830,7 @@ const App: React.FC = () => {
     imageZoom,
     imagePan.x,
     imagePan.y,
+    globalScale,
     globalOffsetX,
     globalOffsetY,
   ]);
@@ -2094,9 +2114,9 @@ const App: React.FC = () => {
     maxY += 800 + skewPadY;
 
     const maxAbsX =
-      Math.max(Math.abs(minX), Math.abs(maxX)) + Math.abs(globalOffsetX);
+      (Math.max(Math.abs(minX), Math.abs(maxX)) + Math.abs(globalOffsetX)) * globalScale;
     const maxAbsY =
-      Math.max(Math.abs(minY), Math.abs(maxY)) + Math.abs(globalOffsetY);
+      (Math.max(Math.abs(minY), Math.abs(maxY)) + Math.abs(globalOffsetY)) * globalScale;
     const proposedWidth = maxAbsX * 2;
     const proposedHeight = maxAbsY * 2;
 
@@ -2110,7 +2130,8 @@ const App: React.FC = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    ctx.translate(originX + globalOffsetX, originY + globalOffsetY);
+    ctx.translate(originX + globalOffsetX * globalScale, originY + globalOffsetY * globalScale);
+    ctx.scale(globalScale, globalScale);
     ctx.transform(
       1,
       Math.tan((skewY * Math.PI) / 180),
@@ -2513,6 +2534,8 @@ const App: React.FC = () => {
       if (setts.subPrompt !== undefined) setSubPrompt(setts.subPrompt);
       if (setts.fontSub !== undefined) setFontSub(setts.fontSub);
       if (setts.sizeSub !== undefined) setSizeSub(setts.sizeSub);
+      if (setts.globalScale !== undefined)
+        setGlobalScale(setts.globalScale);
       if (setts.globalOffsetX !== undefined)
         setGlobalOffsetX(setts.globalOffsetX);
       if (setts.globalOffsetY !== undefined)
@@ -3749,6 +3772,22 @@ const App: React.FC = () => {
                     <span className="ss-title flex-1">{t("labelOffset")}</span>
                   </div>
                   <div className="ss-label mb-2 mt-3 text-[9px] flex items-center">
+                    <span>{t("labelGlobalScale")}</span>
+                    <span className="ml-auto opacity-70 mr-2">
+                      {globalScale.toFixed(2)}
+                    </span>
+                    <ResetBtn onClick={() => setGlobalScale(1.0)} />
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="5.0"
+                    step="0.05"
+                    value={globalScale}
+                    onChange={(e) => setGlobalScale(Number(e.target.value))}
+                    className="ss-slider mb-4"
+                  />
+                  <div className="ss-label mb-2 text-[9px] flex items-center">
                     <span>{t("labelOffsetX")}</span>
                     <span className="ml-auto opacity-70 mr-2">
                       {globalOffsetX}PX
