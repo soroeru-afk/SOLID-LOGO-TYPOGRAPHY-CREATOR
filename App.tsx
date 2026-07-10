@@ -2745,10 +2745,10 @@ const App: React.FC = () => {
                   </div>
                   {attachedMark && (
                     <div
-                      className={`ss-panel animate-fade-in ${collapsedMark ? "py-2 px-3" : "p-3"}`}
+                      className="ss-panel animate-fade-in py-2 px-3"
                     >
                       <div
-                        className={`ss-label flex justify-between items-center w-full ${collapsedMark ? "my-0" : "mb-2 mt-1"}`}
+                        className={`ss-label flex justify-between items-center w-full ${collapsedMark ? "my-0" : "mb-3"}`}
                       >
                         <div className="flex items-center gap-2 flex-1">
                           <span className="ss-number">01</span>
@@ -2862,10 +2862,10 @@ const App: React.FC = () => {
                   {ornaments.map((ornament, idx) => (
                     <div
                       key={`ornament-${idx}`}
-                      className={`ss-panel animate-fade-in ${collapsedOrnaments[idx] ? "py-2 px-3" : "p-3"}`}
+                      className="ss-panel animate-fade-in py-2 px-3"
                     >
                       <div
-                        className={`ss-label flex justify-between items-center ${collapsedOrnaments[idx] ? "my-0" : "mb-2 mt-1"}`}
+                        className={`ss-label flex justify-between items-center ${collapsedOrnaments[idx] ? "my-0" : "mb-3"}`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="ss-number">
@@ -3173,10 +3173,10 @@ const App: React.FC = () => {
                   </div>
 
                   <div
-                    className={`ss-panel animate-fade-in ${collapsedMain ? "py-2 px-3" : "p-3"}`}
+                    className="ss-panel animate-fade-in py-2 px-3"
                   >
                     <div
-                      className={`ss-label flex justify-between items-center w-full ${collapsedMain ? "my-0" : "mb-2 mt-1"}`}
+                      className={`ss-label flex justify-between items-center w-full ${collapsedMain ? "my-0" : "mb-3"}`}
                     >
                       <div className="flex items-center gap-2 flex-1">
                         <span className="ss-number">
@@ -3336,10 +3336,10 @@ const App: React.FC = () => {
                     )}
                   </div>
                   <div
-                    className={`ss-panel animate-fade-in ${collapsedSub ? "py-2 px-3" : "p-3"}`}
+                    className="ss-panel animate-fade-in py-2 px-3"
                   >
                     <div
-                      className={`ss-label flex justify-between items-center w-full ${collapsedSub ? "my-0" : "mb-2 mt-1"}`}
+                      className={`ss-label flex justify-between items-center w-full ${collapsedSub ? "my-0" : "mb-3"}`}
                     >
                       <div className="flex items-center gap-2 flex-1">
                         <span className="ss-number">
