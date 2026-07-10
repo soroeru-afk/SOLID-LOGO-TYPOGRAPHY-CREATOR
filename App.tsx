@@ -3269,7 +3269,7 @@ const App: React.FC = () => {
                                       type="range"
                                       min="-180"
                                       max="180"
-                                      step="1"
+                                      step="15"
                                       value={ornament.rotation}
                                       onChange={(e) => {
                                         const newOrn = [...ornaments];
