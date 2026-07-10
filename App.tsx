@@ -36,8 +36,6 @@ import {
   Palette,
   Sparkles,
   FileText,
-  Plus,
-  Minus,
 } from "lucide-react";
 
 type AppStatus = "idle" | "generating_scene" | "error";
@@ -138,6 +136,7 @@ const TRANSLATIONS = {
     markDeleteTooltip: "Delete",
     btnGenerateMarkStop: "Stop Generation",
     generateTwiceBtn: "Generate 2 Variations",
+    dragAndDropMsg: "Drag & Drop images here to add",
     emptyStockMsg: "No stocks available. Upload from the top right button.",
     labelMotif: "Logo Motif",
     labelResult: "Generated Results",
@@ -286,6 +285,7 @@ const TRANSLATIONS = {
     markDeleteTooltip: "削除",
     btnGenerateMarkStop: "生成を停止",
     generateTwiceBtn: "2パターン生成する",
+    dragAndDropMsg: "画像をドラッグ&ドロップで追加できます",
     emptyStockMsg:
       "ストックはありません。<br/>右上のボタンからアップロードできます。",
     labelMotif: "ロゴのモチーフ",
@@ -384,7 +384,7 @@ const ORNAMENTS = [
 const ResetBtn = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1 w-6 h-6 shrink-0 flex justify-center items-center"
+    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1"
     title="Reset"
   >
     <RotateCcw size={10} />
@@ -519,7 +519,8 @@ const App: React.FC = () => {
   const [generatingMarks, setGeneratingMarks] = useState(false);
   const [generatedMarks, setGeneratedMarks] = useState<string[]>([]);
   const [stockedMarks, setStockedMarks] = useState<string[]>([]);
-  const [selectedStockId, setSelectedStockId] = useState<number | null>(null);
+  const [selectedStockIds, setSelectedStockIds] = useState<number[]>([]);
+  const [isDragOverStock, setIsDragOverStock] = useState(false);
   const [customApiKey, setCustomApiKey] = useState("");
   const [showApiSettings, setShowApiSettings] = useState(false);
 
@@ -612,77 +613,110 @@ const App: React.FC = () => {
   };
 
   const toggleStockSelection = (idx: number) => {
-    setSelectedStockId((prev) => (prev === idx ? null : idx));
+    setSelectedStockIds((prev) =>
+      prev.includes(idx) ? prev.filter((id) => id !== idx) : [...prev, idx]
+    );
   };
 
   const handleSelectedRemove = () => {
-    if (selectedStockId === null) return;
-    handleStockRemove(selectedStockId);
-    setSelectedStockId(null);
+    if (selectedStockIds.length === 0) return;
+    setStockedMarks((prev) => {
+      const next = prev.filter((_, idx) => !selectedStockIds.includes(idx));
+      try {
+        localStorage.setItem("solid_typography_stocks", JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setSelectedStockIds([]);
   };
 
   const handleSelectedDownload = (transparent: boolean) => {
-    if (selectedStockId === null) return;
-    downloadPng(stockedMarks[selectedStockId], transparent);
+    selectedStockIds.forEach((idx) => {
+      downloadPng(stockedMarks[idx], transparent);
+    });
   };
 
   const handleSelectedInvert = () => {
-    if (selectedStockId === null) return;
-    handleInvert(stockedMarks[selectedStockId], undefined, selectedStockId);
+    selectedStockIds.forEach((idx) => {
+      handleInvert(stockedMarks[idx], undefined, idx);
+    });
   };
 
   const handleLocalImageUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result && typeof e.target.result === "string") {
-        const img = new Image();
-        img.onload = () => {
-          const MAX_SIZE = 1024;
-          let w = img.width;
-          let h = img.height;
-          if (w > MAX_SIZE || h > MAX_SIZE) {
-            const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
-            w = w * ratio;
-            h = h * ratio;
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          // fill white background
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          handleStockAdd(canvas.toDataURL("image/jpeg", 0.9));
-        };
-        img.src = e.target.result;
-      }
-    };
-    reader.readAsDataURL(file);
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    processImageFiles(Array.from(files));
     event.target.value = ""; // reset
   };
 
-  const handleStockAdd = (base64: string) => {
-    const next = [base64, ...stockedMarks].slice(0, 50);
-    setStockedMarks(next);
-
-    const saveStocksSafe = (arr: string[]) => {
-      try {
-        localStorage.setItem("solid_typography_stocks", JSON.stringify(arr));
-      } catch (e) {
-        if (arr.length > 1) {
-          saveStocksSafe(arr.slice(0, arr.length - 1));
-        } else {
-          localStorage.removeItem("solid_typography_stocks");
+  const processImageFiles = (files: File[]) => {
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result && typeof e.target.result === "string") {
+          const img = new Image();
+          img.onload = () => {
+            const MAX_SIZE = 1024;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_SIZE || h > MAX_SIZE) {
+              const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+              w = w * ratio;
+              h = h * ratio;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            // fill white background
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            handleStockAdd(canvas.toDataURL("image/jpeg", 0.9));
+          };
+          img.src = e.target.result;
         }
-      }
-    };
-    saveStocksSafe(next);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDragOverStock = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOverStock(true);
+  };
+  const handleDragLeaveStock = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOverStock(false);
+  };
+  const handleDropStock = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOverStock(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processImageFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")));
+    }
+  };
+
+  const handleStockAdd = (base64: string) => {
+    setStockedMarks((prev) => {
+      const next = [base64, ...prev].slice(0, 50);
+      const saveStocksSafe = (arr: string[]) => {
+        try {
+          localStorage.setItem("solid_typography_stocks", JSON.stringify(arr));
+        } catch (e) {
+          if (arr.length > 1) {
+            saveStocksSafe(arr.slice(0, arr.length - 1));
+          } else {
+            localStorage.removeItem("solid_typography_stocks");
+          }
+        }
+      };
+      saveStocksSafe(next);
+      return next;
+    });
   };
 
   const handleStockRemove = (idx: number) => {
@@ -716,16 +750,20 @@ const App: React.FC = () => {
       ctx.putImageData(data, 0, 0);
       const inverted = canvas.toDataURL("image/jpeg", 0.9);
       if (applyToGeneratedIdx !== undefined) {
-        const next = [...generatedMarks];
-        next[applyToGeneratedIdx] = inverted;
-        setGeneratedMarks(next);
+        setGeneratedMarks((prev) => {
+          const next = [...prev];
+          next[applyToGeneratedIdx] = inverted;
+          return next;
+        });
       } else if (applyToStockIdx !== undefined) {
-        const next = [...stockedMarks];
-        next[applyToStockIdx] = inverted;
-        setStockedMarks(next);
-        try {
-          localStorage.setItem("solid_typography_stocks", JSON.stringify(next));
-        } catch (e) {}
+        setStockedMarks((prev) => {
+          const next = [...prev];
+          next[applyToStockIdx] = inverted;
+          try {
+            localStorage.setItem("solid_typography_stocks", JSON.stringify(next));
+          } catch (e) {}
+          return next;
+        });
       }
     };
     img.src = base64;
@@ -1084,7 +1122,7 @@ const App: React.FC = () => {
     } catch (e) {}
     return [
       {
-        type: "none",
+        type: "solid_circle",
         offsetX: 0,
         offsetY: 0,
         scale: 0.35,
@@ -1577,7 +1615,7 @@ const App: React.FC = () => {
     setBgColor("#FFFFFF");
     setOrnaments([
       {
-        type: "none",
+        type: "solid_circle",
         offsetX: 0,
         offsetY: 0,
         scale: 0.35,
@@ -2670,7 +2708,7 @@ const App: React.FC = () => {
               <Sparkles className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
             {activeTab === "objects" && (
               <div className="flex flex-col gap-4">
                 <div className="border border-[var(--border-base)] bg-black/20 rounded-md p-2 flex flex-col gap-2">
@@ -2680,33 +2718,28 @@ const App: React.FC = () => {
                   </div>
                   {attachedMark && (
                     <div
-                      className={`ss-panel animate-fade-in py-2 px-3`}
+                      className={`ss-panel animate-fade-in ${collapsedMark ? "py-2 px-3" : "p-3"}`}
                     >
                       <div
-                        className={`ss-label flex justify-between items-center mt-1 ${collapsedMark ? "mb-0" : "mb-2"}`}
+                        className={`ss-label flex justify-between items-center w-full ${collapsedMark ? "my-0" : "mb-2 mt-1"}`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-1">
                           <span className="ss-number">01</span>
                           <span className="ss-title">AI MARK</span>
-                        </div>
-                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setAttachedMark(null)}
+                            className="opacity-50 hover:opacity-100 p-1 transition-opacity text-[var(--text-base)] hover:text-white mr-1"
+                            title={t("markDeleteTooltip")}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                          <div className="flex-1"></div>
                           <button
                             onClick={() => setCollapsedMark(!collapsedMark)}
-                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                            className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
-                            {collapsedMark ? <Plus size={14} /> : <Minus size={14} />}
+                            {collapsedMark ? "＋" : "−"}
                           </button>
-                          <div className="flex items-center gap-1">
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <button
-                              onClick={() => setAttachedMark(null)}
-                              className="opacity-50 hover:opacity-100 p-1 w-6 h-6 shrink-0 flex justify-center items-center transition-opacity text-[var(--text-base)] hover:text-white"
-                              title={t("markDeleteTooltip")}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
                         </div>
                       </div>
                       {!collapsedMark && (
@@ -2799,10 +2832,10 @@ const App: React.FC = () => {
                   {ornaments.map((ornament, idx) => (
                     <div
                       key={`ornament-${idx}`}
-                      className={`ss-panel animate-fade-in py-2 px-3`}
+                      className={`ss-panel animate-fade-in ${collapsedOrnaments[idx] ? "py-2 px-3" : "p-3"}`}
                     >
                       <div
-                        className={`ss-label flex justify-between items-center mt-1 ${collapsedOrnaments[idx] ? "mb-0" : "mb-2"}`}
+                        className={`ss-label flex justify-between items-center ${collapsedOrnaments[idx] ? "my-0" : "mb-2 mt-1"}`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="ss-number">
@@ -2816,7 +2849,7 @@ const App: React.FC = () => {
                               `ORNAMENT ${idx + 1}`}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => {
                               setCollapsedOrnaments((prev) => {
@@ -2825,62 +2858,56 @@ const App: React.FC = () => {
                                 return next;
                               });
                             }}
-                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                            className="p-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100 mr-2"
                           >
-                            {collapsedOrnaments[idx] ? <Plus size={14} /> : <Minus size={14} />}
+                            {collapsedOrnaments[idx] ? "＋" : "−"}
                           </button>
-                          <div className="flex items-center gap-1">
-                            {idx > 0 ? (
-                              <button
-                                onClick={() => {
-                                  const newOrn = [...ornaments];
-                                  const temp = newOrn[idx - 1];
-                                  newOrn[idx - 1] = newOrn[idx];
-                                  newOrn[idx] = temp;
-                                  setOrnaments(newOrn);
-                                }}
-                                className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                                title="Move Up (Render Below)"
-                              >
-                                ↑
-                              </button>
-                            ) : (
-                              <div className="w-6 h-6 shrink-0"></div>
-                            )}
-                            {idx < ornaments.length - 1 ? (
-                              <button
-                                onClick={() => {
-                                  const newOrn = [...ornaments];
-                                  const temp = newOrn[idx + 1];
-                                  newOrn[idx + 1] = newOrn[idx];
-                                  newOrn[idx] = temp;
-                                  setOrnaments(newOrn);
-                                }}
-                                className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                                title="Move Down (Render Above)"
-                              >
-                                ↓
-                              </button>
-                            ) : (
-                              <div className="w-6 h-6 shrink-0"></div>
-                            )}
-                            <ResetBtn
+                          {idx > 0 && (
+                            <button
                               onClick={() => {
                                 const newOrn = [...ornaments];
-                                newOrn[idx] = {
-                                  type: "none",
-                                  offsetX: 0,
-                                  offsetY: 0,
-                                  scale: 1.0,
-                                  width: 1.0,
-                                  thickness: 15,
-                                  dash: 0,
-                                  color: "#000000",
-                                };
+                                const temp = newOrn[idx - 1];
+                                newOrn[idx - 1] = newOrn[idx];
+                                newOrn[idx] = temp;
                                 setOrnaments(newOrn);
                               }}
-                            />
-                          </div>
+                              className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                              title="Move Up (Render Below)"
+                            >
+                              ↑
+                            </button>
+                          )}
+                          {idx < ornaments.length - 1 && (
+                            <button
+                              onClick={() => {
+                                const newOrn = [...ornaments];
+                                const temp = newOrn[idx + 1];
+                                newOrn[idx + 1] = newOrn[idx];
+                                newOrn[idx] = temp;
+                                setOrnaments(newOrn);
+                              }}
+                              className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                              title="Move Down (Render Above)"
+                            >
+                              ↓
+                            </button>
+                          )}
+                          <ResetBtn
+                            onClick={() => {
+                              const newOrn = [...ornaments];
+                              newOrn[idx] = {
+                                type: "none",
+                                offsetX: 0,
+                                offsetY: 0,
+                                scale: 1.0,
+                                width: 1.0,
+                                thickness: 15,
+                                dash: 0,
+                                color: "#000000",
+                              };
+                              setOrnaments(newOrn);
+                            }}
+                          />
                         </div>
                       </div>
                       {!collapsedOrnaments[idx] && (
@@ -3112,31 +3139,25 @@ const App: React.FC = () => {
                   </div>
 
                   <div
-                    className={`ss-panel animate-fade-in py-2 px-3`}
+                    className={`ss-panel animate-fade-in ${collapsedMain ? "py-2 px-3" : "p-3"}`}
                   >
                     <div
-                      className={`ss-label flex justify-between items-center mt-1 ${collapsedMain ? "mb-0" : "mb-2"}`}
+                      className={`ss-label flex justify-between items-center w-full ${collapsedMain ? "my-0" : "mb-2 mt-1"}`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-1">
                         <span className="ss-number">
                           {attachedMark ? "02" : "01"}
                         </span>
                         <span className="ss-title flex-shrink-0">
                           {t("labelMainText")}
                         </span>
-                      </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex-1"></div>
                         <button
                           onClick={() => setCollapsedMain(!collapsedMain)}
-                          className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                         >
-                          {collapsedMain ? <Plus size={14} /> : <Minus size={14} />}
+                          {collapsedMain ? "＋" : "−"}
                         </button>
-                        <div className="flex items-center gap-1">
-                          <div className="w-6 h-6 shrink-0"></div>
-                          <div className="w-6 h-6 shrink-0"></div>
-                          <div className="w-6 h-6 shrink-0"></div>
-                        </div>
                       </div>
                     </div>
                     {!collapsedMain && (
@@ -3277,31 +3298,25 @@ const App: React.FC = () => {
                     )}
                   </div>
                   <div
-                    className={`ss-panel animate-fade-in py-2 px-3`}
+                    className={`ss-panel animate-fade-in ${collapsedSub ? "py-2 px-3" : "p-3"}`}
                   >
                     <div
-                      className={`ss-label flex justify-between items-center mt-1 ${collapsedSub ? "mb-0" : "mb-2"}`}
+                      className={`ss-label flex justify-between items-center w-full ${collapsedSub ? "my-0" : "mb-2 mt-1"}`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-1">
                         <span className="ss-number">
                           {attachedMark ? "03" : "02"}
                         </span>
                         <span className="ss-title flex-shrink-0">
                           {t("labelSubText")}
                         </span>
-                      </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex-1"></div>
                         <button
                           onClick={() => setCollapsedSub(!collapsedSub)}
-                          className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                         >
-                          {collapsedSub ? <Plus size={14} /> : <Minus size={14} />}
+                          {collapsedSub ? "＋" : "−"}
                         </button>
-                        <div className="flex items-center gap-1">
-                          <div className="w-6 h-6 shrink-0"></div>
-                          <div className="w-6 h-6 shrink-0"></div>
-                          <div className="w-6 h-6 shrink-0"></div>
-                        </div>
                       </div>
                     </div>
                     {!collapsedSub && (
@@ -3615,7 +3630,12 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="ss-panel p-3">
+                  <div
+                    className={`ss-panel p-3 transition-colors ${isDragOverStock ? "bg-[var(--bg-btn-active)] border-dashed border-[var(--text-bright)]" : ""}`}
+                    onDragOver={handleDragOverStock}
+                    onDragLeave={handleDragLeaveStock}
+                    onDrop={handleDropStock}
+                  >
                     <div className="ss-label mb-3 mt-1 flex justify-between items-center">
                       <div>
                         <span className="ss-number">03</span>
@@ -3632,11 +3652,16 @@ const App: React.FC = () => {
                           <input
                             type="file"
                             accept="image/*"
+                            multiple
                             className="hidden"
                             onChange={handleLocalImageUpload}
                           />
                         </label>
                       </div>
+                    </div>
+
+                    <div className="text-[10px] text-[var(--text-base)] opacity-70 mb-3 text-center border border-dashed border-[var(--border-base)] py-2 rounded">
+                      {t("dragAndDropMsg")}
                     </div>
 
                     <div className="flex gap-2 mb-3 pt-2 pb-2 bg-[var(--bg-panel)] border border-[var(--border-base)] rounded justify-center items-center">
@@ -3645,32 +3670,32 @@ const App: React.FC = () => {
                       </span>
                       <button
                         onClick={handleSelectedInvert}
-                        disabled={selectedStockId === null}
-                        className={`p-1 transition-colors ${selectedStockId !== null ? "text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+                        disabled={selectedStockIds.length === 0}
+                        className={`p-1 transition-colors ${selectedStockIds.length > 0 ? "text-[var(--text-base)] hover:text-[var(--text-bright)] cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
                         title={t("markInvertTooltip")}
                       >
                         <Contrast size={12} />
                       </button>
                       <button
                         onClick={() => handleSelectedDownload(false)}
-                        disabled={selectedStockId === null}
-                        className={`p-1 transition-colors ${selectedStockId !== null ? "text-[var(--text-base)] hover:text-blue-500 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+                        disabled={selectedStockIds.length === 0}
+                        className={`p-1 transition-colors ${selectedStockIds.length > 0 ? "text-[var(--text-base)] hover:text-blue-500 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
                         title={t("markPngTooltip")}
                       >
                         <ImageIcon size={12} />
                       </button>
                       <button
                         onClick={() => handleSelectedDownload(true)}
-                        disabled={selectedStockId === null}
-                        className={`p-1 transition-colors ${selectedStockId !== null ? "text-[var(--text-base)] hover:text-blue-500 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+                        disabled={selectedStockIds.length === 0}
+                        className={`p-1 transition-colors ${selectedStockIds.length > 0 ? "text-[var(--text-base)] hover:text-blue-500 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
                         title={t("markPngAlphaTooltip")}
                       >
                         <Download size={12} />
                       </button>
                       <button
                         onClick={handleSelectedRemove}
-                        disabled={selectedStockId === null}
-                        className={`p-1 ml-1 ${selectedStockId !== null ? "text-gray-300 hover:text-red-400 cursor-pointer" : "text-gray-600 cursor-not-allowed"}`}
+                        disabled={selectedStockIds.length === 0}
+                        className={`p-1 ml-1 ${selectedStockIds.length > 0 ? "text-gray-300 hover:text-red-400 cursor-pointer" : "text-gray-600 cursor-not-allowed"}`}
                         title={t("markDeleteTooltip")}
                       >
                         <Trash2 size={12} />
@@ -3680,7 +3705,7 @@ const App: React.FC = () => {
                     {stockedMarks.length > 0 ? (
                       <div className="grid grid-cols-3 gap-2">
                         {stockedMarks.map((markBase64, idx) => {
-                          const isSelected = selectedStockId === idx;
+                          const isSelected = selectedStockIds.includes(idx);
                           return (
                             <div
                               key={`stock-${idx}`}
@@ -4358,7 +4383,7 @@ const App: React.FC = () => {
               {t("tabDataLabel")}
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
             {activeRightTab === "3d" && (
               <>
                 <div className="ss-panel p-3 animate-fade-in">
@@ -4427,7 +4452,7 @@ const App: React.FC = () => {
                     <span className="ss-number">02</span>
                     <span className="ss-title">{t("label3DEffects")}</span>
                   </div>
-                  <div className="flex flex-col gap-1 overflow-y-scroll">
+                  <div className="flex flex-col gap-1 overflow-y-auto">
                     {EFFECTS.map((e) => (
                       <button
                         key={e.id}
@@ -4474,7 +4499,7 @@ const App: React.FC = () => {
                   <span className="ss-number">04</span>
                   <span className="ss-title">{t("labelHistory")}</span>
                 </div>
-                <div className="flex-1 flex flex-col gap-2 overflow-y-scroll">
+                <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
                   {history.length > 0 ? (
                     history.map((sn, idx) => (
                       <div
