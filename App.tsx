@@ -2735,7 +2735,7 @@ const App: React.FC = () => {
               <Sparkles className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
             {activeTab === "objects" && (
               <div className="flex flex-col gap-4">
                 <div className="border border-[var(--border-base)] bg-black/20 rounded-md p-2 flex flex-col gap-2">
@@ -2754,24 +2754,22 @@ const App: React.FC = () => {
                           <span className="ss-number">01</span>
                           <span className="ss-title">AI MARK</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => setCollapsedMark(!collapsedMark)}
                             className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
                             {collapsedMark ? <Plus size={14} /> : <Minus size={14} />}
                           </button>
-                          <div className="flex items-center gap-1">
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <button
-                              onClick={() => setAttachedMark(null)}
-                              className="opacity-50 hover:opacity-100 p-1 w-6 h-6 shrink-0 flex justify-center items-center transition-opacity text-[var(--text-base)] hover:text-white"
-                              title={t("markDeleteTooltip")}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <button
+                            onClick={() => setAttachedMark(null)}
+                            className="opacity-50 hover:opacity-100 p-1 w-6 h-6 shrink-0 flex justify-center items-center transition-opacity text-[var(--text-base)] hover:text-white"
+                            title={t("markDeleteTooltip")}
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </div>
                       {!collapsedMark && (
@@ -3188,18 +3186,16 @@ const App: React.FC = () => {
                           {t("labelMainText")}
                         </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => setCollapsedMain(!collapsedMain)}
                             className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
                             {collapsedMain ? <Plus size={14} /> : <Minus size={14} />}
                           </button>
-                          <div className="flex items-center gap-1">
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                          </div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
                         </div>
                     </div>
                     {!collapsedMain && (
@@ -3353,18 +3349,16 @@ const App: React.FC = () => {
                           {t("labelSubText")}
                         </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => setCollapsedSub(!collapsedSub)}
                             className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                           >
                             {collapsedSub ? <Plus size={14} /> : <Minus size={14} />}
                           </button>
-                          <div className="flex items-center gap-1">
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                            <div className="w-6 h-6 shrink-0"></div>
-                          </div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
                         </div>
                     </div>
                     {!collapsedSub && (
@@ -4447,7 +4441,7 @@ const App: React.FC = () => {
               {t("tabDataLabel")}
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
             {activeRightTab === "3d" && (
               <>
                 <div className="ss-panel p-3 animate-fade-in">
