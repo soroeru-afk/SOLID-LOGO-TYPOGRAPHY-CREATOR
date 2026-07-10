@@ -36,6 +36,8 @@ import {
   Palette,
   Sparkles,
   FileText,
+  Plus,
+  Minus,
 } from "lucide-react";
 
 type AppStatus = "idle" | "generating_scene" | "error";
@@ -382,7 +384,7 @@ const ORNAMENTS = [
 const ResetBtn = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1"
+    className="opacity-50 hover:opacity-100 hover:text-emerald-400 p-1 w-6 h-6 shrink-0 flex justify-center items-center"
     title="Reset"
   >
     <RotateCcw size={10} />
@@ -2633,765 +2635,843 @@ const App: React.FC = () => {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* LEFT SIDEBAR: PARAMETERS */}
         <aside className="w-72 border-r border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
-          <div className="flex shrink-0 px-4 pt-4 pb-0 gap-2">
+          <div className="px-4 pt-4 pb-0 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-[var(--text-base)] uppercase tracking-widest mb-1">
+                CREATIVE SECTION
+              </span>
+              <span className="text-[12px] font-bold text-[var(--text-bright)] tracking-wider">
+                {activeTab === "objects" && t("tabObjectsLabel")}
+                {activeTab === "style" && t("tabLayoutColorLabel")}
+                {activeTab === "mark" && t("tabMarkLabel")}
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 px-4 pt-3 pb-0 gap-2">
             <button
               onClick={() => setActiveTab("objects")}
-              className={`flex-1 ss-btn py-3 flex flex-col items-center justify-center gap-1.5 ${activeTab === "objects" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "objects" ? "ss-btn-active" : ""}`}
+              title={t("tabObjectsLabel")}
             >
-              <FileText className="w-4 h-4 mb-1" />
-              <span>{t("tabObjectsLabel")}</span>
+              <FileText className="w-5 h-5" />
             </button>
             <button
               onClick={() => setActiveTab("style")}
-              className={`flex-1 ss-btn py-3 flex flex-col items-center justify-center gap-1.5 ${activeTab === "style" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "style" ? "ss-btn-active" : ""}`}
+              title={t("tabLayoutColorLabel")}
             >
-              <Palette className="w-4 h-4 mb-1" />
-              <span>{t("tabLayoutColorLabel")}</span>
+              <Palette className="w-5 h-5" />
             </button>
             <button
               onClick={() => setActiveTab("mark")}
-              className={`flex-1 ss-btn py-3 flex flex-col items-center justify-center gap-1.5 ${activeTab === "mark" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "mark" ? "ss-btn-active" : ""}`}
+              title={t("tabMarkLabel")}
             >
-              <Sparkles className="w-4 h-4 mb-1" />
-              <span>{t("tabMarkLabel")}</span>
+              <Sparkles className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
             {activeTab === "objects" && (
-              <>
-                {attachedMark && (
-                  <div className="ss-panel p-3 animate-fade-in">
-                    <div className="ss-label mb-2 mt-1 flex justify-between items-center w-full">
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="ss-number">01</span>
-                        <span className="ss-title">AI MARK</span>
+              <div className="flex flex-col gap-4">
+                <div className="border border-[var(--border-base)] bg-black/20 rounded-md p-2 flex flex-col gap-2">
+                  <div className="text-[10px] font-bold text-[var(--text-bright)] opacity-60 ml-2 mt-1 mb-1 uppercase tracking-widest flex items-center gap-2">
+                    <Shapes size={12} />
+                    OBJECTS
+                  </div>
+                  {attachedMark && (
+                    <div
+                      className={`ss-panel animate-fade-in py-2 px-3`}
+                    >
+                      <div
+                        className={`ss-label flex justify-between items-center mt-1 ${collapsedMark ? "mb-0" : "mb-2"}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="ss-number">01</span>
+                          <span className="ss-title">AI MARK</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setCollapsedMark(!collapsedMark)}
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          >
+                            {collapsedMark ? <Plus size={14} /> : <Minus size={14} />}
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <div className="w-6 h-6 shrink-0"></div>
+                            <button
+                              onClick={() => setAttachedMark(null)}
+                              className="opacity-50 hover:opacity-100 p-1 w-6 h-6 shrink-0 flex justify-center items-center transition-opacity text-[var(--text-base)] hover:text-white"
+                              title={t("markDeleteTooltip")}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      {!collapsedMark && (
+                        <>
+                          <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
+                            <span>EDGE WIDTH</span>
+                            <span className="ml-auto opacity-70 mr-2">
+                              {outlineWidthMark}PX
+                            </span>
+                            <ResetBtn onClick={() => setOutlineWidthMark(0)} />
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={outlineWidthMark}
+                            onChange={(e) =>
+                              setOutlineWidthMark(Number(e.target.value))
+                            }
+                            className="ss-slider mb-4"
+                          />
+
+                          <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
+                            <span>{t("labelScale")}</span>
+                            <span className="ml-auto opacity-70 mr-2">
+                              {attachedMarkScale.toFixed(2)}
+                            </span>
+                            <ResetBtn
+                              onClick={() => setAttachedMarkScale(1.0)}
+                            />
+                          </div>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="5.0"
+                            step="0.1"
+                            value={attachedMarkScale}
+                            onChange={(e) =>
+                              setAttachedMarkScale(Number(e.target.value))
+                            }
+                            className="ss-slider mb-4"
+                          />
+
+                          <div className="ss-label mb-2 text-[9px] flex items-center">
+                            <span>{t("labelMarkX")}</span>
+                            <span className="ml-auto opacity-70 mr-2">
+                              {attachedMarkOffsetX}PX
+                            </span>
+                            <ResetBtn
+                              onClick={() => setAttachedMarkOffsetX(0)}
+                            />
+                          </div>
+                          <input
+                            type="range"
+                            min="-1500"
+                            max="1500"
+                            step="10"
+                            value={attachedMarkOffsetX}
+                            onChange={(e) =>
+                              setAttachedMarkOffsetX(Number(e.target.value))
+                            }
+                            className="ss-slider mb-4"
+                          />
+
+                          <div className="ss-label mb-2 text-[9px] flex items-center">
+                            <span>{t("labelMarkY")}</span>
+                            <span className="ml-auto opacity-70 mr-2">
+                              {attachedMarkOffsetY}PX
+                            </span>
+                            <ResetBtn
+                              onClick={() => setAttachedMarkOffsetY(-150)}
+                            />
+                          </div>
+                          <input
+                            type="range"
+                            min="-1500"
+                            max="1500"
+                            step="10"
+                            value={attachedMarkOffsetY}
+                            onChange={(e) =>
+                              setAttachedMarkOffsetY(Number(e.target.value))
+                            }
+                            className="ss-slider mb-2"
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {ornaments.map((ornament, idx) => (
+                    <div
+                      key={`ornament-${idx}`}
+                      className={`ss-panel animate-fade-in py-2 px-3`}
+                    >
+                      <div
+                        className={`ss-label flex justify-between items-center mt-1 ${collapsedOrnaments[idx] ? "mb-0" : "mb-2"}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="ss-number">
+                            {String(idx + (attachedMark ? 5 : 4)).padStart(
+                              2,
+                              "0",
+                            )}
+                          </span>
+                          <span className="ss-title whitespace-nowrap flex-shrink-0">
+                            {t(`labelOrnament${idx + 1}` as any) ||
+                              `ORNAMENT ${idx + 1}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              setCollapsedOrnaments((prev) => {
+                                const next = [...prev];
+                                next[idx] = !next[idx];
+                                return next;
+                              });
+                            }}
+                            className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                          >
+                            {collapsedOrnaments[idx] ? <Plus size={14} /> : <Minus size={14} />}
+                          </button>
+                          <div className="flex items-center gap-1">
+                            {idx > 0 ? (
+                              <button
+                                onClick={() => {
+                                  const newOrn = [...ornaments];
+                                  const temp = newOrn[idx - 1];
+                                  newOrn[idx - 1] = newOrn[idx];
+                                  newOrn[idx] = temp;
+                                  setOrnaments(newOrn);
+                                }}
+                                className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                                title="Move Up (Render Below)"
+                              >
+                                ↑
+                              </button>
+                            ) : (
+                              <div className="w-6 h-6 shrink-0"></div>
+                            )}
+                            {idx < ornaments.length - 1 ? (
+                              <button
+                                onClick={() => {
+                                  const newOrn = [...ornaments];
+                                  const temp = newOrn[idx + 1];
+                                  newOrn[idx + 1] = newOrn[idx];
+                                  newOrn[idx] = temp;
+                                  setOrnaments(newOrn);
+                                }}
+                                className="p-1 w-6 h-6 shrink-0 flex justify-center items-center hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
+                                title="Move Down (Render Above)"
+                              >
+                                ↓
+                              </button>
+                            ) : (
+                              <div className="w-6 h-6 shrink-0"></div>
+                            )}
+                            <ResetBtn
+                              onClick={() => {
+                                const newOrn = [...ornaments];
+                                newOrn[idx] = {
+                                  type: "none",
+                                  offsetX: 0,
+                                  offsetY: 0,
+                                  scale: 1.0,
+                                  width: 1.0,
+                                  thickness: 15,
+                                  dash: 0,
+                                  color: "#000000",
+                                };
+                                setOrnaments(newOrn);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {!collapsedOrnaments[idx] && (
+                        <>
+                          <select
+                            value={ornament.type}
+                            onChange={(e) => {
+                              const newOrn = [...ornaments];
+                              newOrn[idx].type = e.target.value;
+                              setOrnaments(newOrn);
+                            }}
+                            className="ss-select w-full mb-3"
+                          >
+                            {ORNAMENTS.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {t(o.labelKey as any)}
+                              </option>
+                            ))}
+                          </select>
+
+                          {ornament.type !== "none" && (
+                            <div className="animate-fade-in mt-2 border-t border-[var(--border-base)] pt-3">
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelHorizontalPos")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.offsetX}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].offsetX = 0;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="-1000"
+                                    max="1000"
+                                    step="10"
+                                    value={ornament.offsetX}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].offsetX = Number(
+                                        e.target.value,
+                                      );
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-4"
+                                  />
+                                </div>
+
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelVerticalPos")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.offsetY}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].offsetY = 0;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="-1000"
+                                    max="1000"
+                                    step="10"
+                                    value={ornament.offsetY}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].offsetY = Number(
+                                        e.target.value,
+                                      );
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-4"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelOrnamentScale")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.scale.toFixed(1)}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].scale = 1.0;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="0.1"
+                                    max="5.0"
+                                    step="0.1"
+                                    value={ornament.scale}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].scale = Number(
+                                        e.target.value,
+                                      );
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-4"
+                                  />
+                                </div>
+
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelOrnamentWidth")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.width.toFixed(1)}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].width = 1.0;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="0.1"
+                                    max="5.0"
+                                    step="0.1"
+                                    value={ornament.width}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].width = Number(
+                                        e.target.value,
+                                      );
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-4"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelOrnamentThickness")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.thickness}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].thickness = 15;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="1"
+                                    max="100"
+                                    step="1"
+                                    value={ornament.thickness}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].thickness = Number(
+                                        e.target.value,
+                                      );
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-2"
+                                  />
+                                </div>
+
+                                <div className="flex-1">
+                                  <div className="ss-label mb-2 text-[9px] flex items-center">
+                                    <span>{t("labelOrnamentDash")}</span>
+                                    <span className="ml-auto opacity-70 mr-1">
+                                      {ornament.dash}
+                                    </span>
+                                    <ResetBtn
+                                      onClick={() => {
+                                        const newOrn = [...ornaments];
+                                        newOrn[idx].dash = 0;
+                                        setOrnaments(newOrn);
+                                      }}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={ornament.dash}
+                                    onChange={(e) => {
+                                      const newOrn = [...ornaments];
+                                      newOrn[idx].dash = Number(e.target.value);
+                                      setOrnaments(newOrn);
+                                    }}
+                                    className="ss-slider mb-2"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="border border-[var(--border-base)] bg-black/20 rounded-md p-2 flex flex-col gap-2">
+                  <div className="text-[10px] font-bold text-[var(--text-bright)] opacity-60 ml-2 mt-1 mb-1 uppercase tracking-widest flex items-center gap-2">
+                    <FileText size={12} />
+                    TEXT
+                  </div>
+
+                  <div
+                    className={`ss-panel animate-fade-in py-2 px-3`}
+                  >
+                    <div
+                      className={`ss-label flex justify-between items-center mt-1 ${collapsedMain ? "mb-0" : "mb-2"}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="ss-number">
+                          {attachedMark ? "02" : "01"}
+                        </span>
+                        <span className="ss-title flex-shrink-0">
+                          {t("labelMainText")}
+                        </span>
+                      </div>
+                        <div className="flex items-center gap-3">
                         <button
-                          onClick={() => setAttachedMark(null)}
-                          className="opacity-50 hover:opacity-100 p-1 transition-opacity text-[var(--text-base)] hover:text-white mr-1"
-                          title={t("markDeleteTooltip")}
+                          onClick={() => setCollapsedMain(!collapsedMain)}
+                          className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                         >
-                          <Trash2 size={12} />
+                          {collapsedMain ? <Plus size={14} /> : <Minus size={14} />}
                         </button>
-                        <div className="flex-1"></div>
-                        <button
-                          onClick={() => setCollapsedMark(!collapsedMark)}
-                          className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                        >
-                          {collapsedMark ? "＋" : "−"}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                        </div>
                       </div>
                     </div>
-                    {!collapsedMark && (
+                    {!collapsedMain && (
                       <>
-                        <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
+                        <textarea
+                          className="ss-input py-2 px-3 text-[12px] h-16 resize-none leading-relaxed mb-3"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                        />
+                        <select
+                          value={fontMain}
+                          onChange={(e) => setFontMain(e.target.value)}
+                          className="ss-select w-full mb-3"
+                          style={{ fontFamily: fontMain }}
+                        >
+                          {FONTS.map((f) => (
+                            <option
+                              key={f.name}
+                              value={f.value}
+                              style={{ fontFamily: f.value }}
+                            >
+                              {f.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelSize")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {sizeMain}PX
+                          </span>
+                          <ResetBtn onClick={() => setSizeMain(160)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="400"
+                          step="10"
+                          value={sizeMain}
+                          onChange={(e) => setSizeMain(Number(e.target.value))}
+                          className="ss-slider mb-4"
+                        />
+
+                        <div className="ss-label mb-2 flex items-center">
                           <span>EDGE WIDTH</span>
                           <span className="ml-auto opacity-70 mr-2">
-                            {outlineWidthMark}PX
+                            {outlineWidthMain}PX
                           </span>
-                          <ResetBtn onClick={() => setOutlineWidthMark(0)} />
+                          <ResetBtn onClick={() => setOutlineWidthMain(0)} />
                         </div>
                         <input
                           type="range"
                           min="0"
+                          max="50"
+                          step="1"
+                          value={outlineWidthMain}
+                          onChange={(e) =>
+                            setOutlineWidthMain(Number(e.target.value))
+                          }
+                          className="ss-slider mb-4"
+                        />
+
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelMainTracking")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {mainLetterSpacing}PX
+                          </span>
+                          <ResetBtn onClick={() => setMainLetterSpacing(5)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="-20"
                           max="100"
                           step="1"
-                          value={outlineWidthMark}
+                          value={mainLetterSpacing}
                           onChange={(e) =>
-                            setOutlineWidthMark(Number(e.target.value))
+                            setMainLetterSpacing(Number(e.target.value))
                           }
                           className="ss-slider mb-4"
                         />
 
-                        <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
-                          <span>{t("labelScale")}</span>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelMainLineSpace")}</span>
                           <span className="ml-auto opacity-70 mr-2">
-                            {attachedMarkScale.toFixed(2)}
+                            {mainLineHeight.toFixed(1)}
                           </span>
-                          <ResetBtn onClick={() => setAttachedMarkScale(1.0)} />
+                          <ResetBtn onClick={() => setMainLineHeight(1.2)} />
                         </div>
                         <input
                           type="range"
-                          min="0.1"
-                          max="5.0"
+                          min="0.5"
+                          max="3.0"
                           step="0.1"
-                          value={attachedMarkScale}
+                          value={mainLineHeight}
                           onChange={(e) =>
-                            setAttachedMarkScale(Number(e.target.value))
+                            setMainLineHeight(Number(e.target.value))
                           }
                           className="ss-slider mb-4"
                         />
 
                         <div className="ss-label mb-2 text-[9px] flex items-center">
-                          <span>{t("labelMarkX")}</span>
+                          <span>{t("labelMainX")}</span>
                           <span className="ml-auto opacity-70 mr-2">
-                            {attachedMarkOffsetX}PX
+                            {mainOffsetX}PX
                           </span>
-                          <ResetBtn onClick={() => setAttachedMarkOffsetX(0)} />
+                          <ResetBtn onClick={() => setMainOffsetX(0)} />
                         </div>
                         <input
                           type="range"
                           min="-1500"
                           max="1500"
                           step="10"
-                          value={attachedMarkOffsetX}
+                          value={mainOffsetX}
                           onChange={(e) =>
-                            setAttachedMarkOffsetX(Number(e.target.value))
+                            setMainOffsetX(Number(e.target.value))
                           }
                           className="ss-slider mb-4"
                         />
 
                         <div className="ss-label mb-2 text-[9px] flex items-center">
-                          <span>{t("labelMarkY")}</span>
+                          <span>{t("labelMainY")}</span>
                           <span className="ml-auto opacity-70 mr-2">
-                            {attachedMarkOffsetY}PX
+                            {mainOffsetY}PX
                           </span>
-                          <ResetBtn
-                            onClick={() => setAttachedMarkOffsetY(-150)}
-                          />
+                          <ResetBtn onClick={() => setMainOffsetY(-50)} />
                         </div>
                         <input
                           type="range"
                           min="-1500"
                           max="1500"
                           step="10"
-                          value={attachedMarkOffsetY}
+                          value={mainOffsetY}
                           onChange={(e) =>
-                            setAttachedMarkOffsetY(Number(e.target.value))
+                            setMainOffsetY(Number(e.target.value))
                           }
                           className="ss-slider mb-2"
                         />
                       </>
                     )}
                   </div>
-                )}
-                <div className="ss-panel p-3 animate-fade-in">
-                  <div className="ss-label mb-2 mt-1 flex justify-between items-center w-full">
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className="ss-number">
-                        {attachedMark ? "02" : "01"}
-                      </span>
-                      <span className="ss-title flex-shrink-0">
-                        {t("labelMainText")}
-                      </span>
-                      <div className="flex-1"></div>
-                      <button
-                        onClick={() => setCollapsedMain(!collapsedMain)}
-                        className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                      >
-                        {collapsedMain ? "＋" : "−"}
-                      </button>
-                    </div>
-                  </div>
-                  {!collapsedMain && (
-                    <>
-                      <textarea
-                        className="ss-input py-2 px-3 text-[12px] h-16 resize-none leading-relaxed mb-3"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                      />
-                      <select
-                        value={fontMain}
-                        onChange={(e) => setFontMain(e.target.value)}
-                        className="ss-select w-full mb-3"
-                        style={{ fontFamily: fontMain }}
-                      >
-                        {FONTS.map((f) => (
-                          <option
-                            key={f.name}
-                            value={f.value}
-                            style={{ fontFamily: f.value }}
-                          >
-                            {f.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelSize")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {sizeMain}PX
-                        </span>
-                        <ResetBtn onClick={() => setSizeMain(160)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="40"
-                        max="400"
-                        step="10"
-                        value={sizeMain}
-                        onChange={(e) => setSizeMain(Number(e.target.value))}
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>EDGE WIDTH</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {outlineWidthMain}PX
-                        </span>
-                        <ResetBtn onClick={() => setOutlineWidthMain(0)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="50"
-                        step="1"
-                        value={outlineWidthMain}
-                        onChange={(e) =>
-                          setOutlineWidthMain(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelMainTracking")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {mainLetterSpacing}PX
-                        </span>
-                        <ResetBtn onClick={() => setMainLetterSpacing(5)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-20"
-                        max="100"
-                        step="1"
-                        value={mainLetterSpacing}
-                        onChange={(e) =>
-                          setMainLetterSpacing(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelMainLineSpace")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {mainLineHeight.toFixed(1)}
-                        </span>
-                        <ResetBtn onClick={() => setMainLineHeight(1.2)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="3.0"
-                        step="0.1"
-                        value={mainLineHeight}
-                        onChange={(e) =>
-                          setMainLineHeight(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 text-[9px] flex items-center">
-                        <span>{t("labelMainX")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {mainOffsetX}PX
-                        </span>
-                        <ResetBtn onClick={() => setMainOffsetX(0)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-1500"
-                        max="1500"
-                        step="10"
-                        value={mainOffsetX}
-                        onChange={(e) => setMainOffsetX(Number(e.target.value))}
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 text-[9px] flex items-center">
-                        <span>{t("labelMainY")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {mainOffsetY}PX
-                        </span>
-                        <ResetBtn onClick={() => setMainOffsetY(-50)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-1500"
-                        max="1500"
-                        step="10"
-                        value={mainOffsetY}
-                        onChange={(e) => setMainOffsetY(Number(e.target.value))}
-                        className="ss-slider mb-2"
-                      />
-                    </>
-                  )}
-                </div>
-                <div className="ss-panel p-3 animate-fade-in">
-                  <div className="ss-label mb-2 mt-1 flex justify-between items-center w-full">
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className="ss-number">
-                        {attachedMark ? "03" : "02"}
-                      </span>
-                      <span className="ss-title flex-shrink-0">
-                        {t("labelSubText")}
-                      </span>
-                      <div className="flex-1"></div>
-                      <button
-                        onClick={() => setCollapsedSub(!collapsedSub)}
-                        className="p-1 ml-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                      >
-                        {collapsedSub ? "＋" : "−"}
-                      </button>
-                    </div>
-                  </div>
-                  {!collapsedSub && (
-                    <>
-                      <textarea
-                        className="ss-input py-2 px-3 text-[10px] h-12 resize-none leading-relaxed mb-3"
-                        value={subPrompt}
-                        onChange={(e) => setSubPrompt(e.target.value)}
-                      />
-                      <select
-                        value={fontSub}
-                        onChange={(e) => setFontSub(e.target.value)}
-                        className="ss-select w-full mb-3"
-                        style={{ fontFamily: fontSub }}
-                      >
-                        {FONTS.map((f) => (
-                          <option
-                            key={f.name}
-                            value={f.value}
-                            style={{ fontFamily: f.value }}
-                          >
-                            {f.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelSize")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {sizeSub}PX
-                        </span>
-                        <ResetBtn onClick={() => setSizeSub(30)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="1"
-                        value={sizeSub}
-                        onChange={(e) => setSizeSub(Number(e.target.value))}
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>EDGE WIDTH</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {outlineWidthSub}PX
-                        </span>
-                        <ResetBtn onClick={() => setOutlineWidthSub(0)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="50"
-                        step="1"
-                        value={outlineWidthSub}
-                        onChange={(e) =>
-                          setOutlineWidthSub(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelSubTracking")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {subLetterSpacing}PX
-                        </span>
-                        <ResetBtn onClick={() => setSubLetterSpacing(5)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-20"
-                        max="100"
-                        step="1"
-                        value={subLetterSpacing}
-                        onChange={(e) =>
-                          setSubLetterSpacing(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 flex items-center">
-                        <span>{t("labelSubLineSpace")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {subLineHeight.toFixed(1)}
-                        </span>
-                        <ResetBtn onClick={() => setSubLineHeight(1.5)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="3.0"
-                        step="0.1"
-                        value={subLineHeight}
-                        onChange={(e) =>
-                          setSubLineHeight(Number(e.target.value))
-                        }
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 text-[9px] flex items-center">
-                        <span>{t("labelSubX")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {subOffsetX}PX
-                        </span>
-                        <ResetBtn onClick={() => setSubOffsetX(0)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-1500"
-                        max="1500"
-                        step="10"
-                        value={subOffsetX}
-                        onChange={(e) => setSubOffsetX(Number(e.target.value))}
-                        className="ss-slider mb-4"
-                      />
-
-                      <div className="ss-label mb-2 text-[9px] flex items-center">
-                        <span>{t("labelSubY")}</span>
-                        <span className="ml-auto opacity-70 mr-2">
-                          {subOffsetY}PX
-                        </span>
-                        <ResetBtn onClick={() => setSubOffsetY(100)} />
-                      </div>
-                      <input
-                        type="range"
-                        min="-1500"
-                        max="1500"
-                        step="10"
-                        value={subOffsetY}
-                        onChange={(e) => setSubOffsetY(Number(e.target.value))}
-                        className="ss-slider mb-2"
-                      />
-                    </>
-                  )}
-                </div>
-                <div className="ss-panel p-3 animate-fade-in">
-                  <div className="ss-label mb-2 mt-1">
-                    <span className="ss-number">
-                      {attachedMark ? "04" : "03"}
-                    </span>
-                    <span className="ss-title">{t("labelCharSettings")}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center gap-2 mb-2 mt-3">
-                    <button
-                      onClick={() => setTextAlign("left")}
-                      className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "left" ? "ss-btn-active" : ""}`}
-                    >
-                      {t("labelAlignLeft")}
-                    </button>
-                    <button
-                      onClick={() => setTextAlign("center")}
-                      className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "center" ? "ss-btn-active" : ""}`}
-                    >
-                      {t("labelAlignCenter")}
-                    </button>
-                    <button
-                      onClick={() => setTextAlign("right")}
-                      className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "right" ? "ss-btn-active" : ""}`}
-                    >
-                      {t("labelAlignRight")}
-                    </button>
-                  </div>
-                </div>
-                {ornaments.map((ornament, idx) => (
                   <div
-                    key={`ornament-${idx}`}
-                    className="ss-panel p-3 animate-fade-in"
+                    className={`ss-panel animate-fade-in py-2 px-3`}
                   >
-                    <div className="ss-label mb-2 mt-1 flex justify-between items-center">
+                    <div
+                      className={`ss-label flex justify-between items-center mt-1 ${collapsedSub ? "mb-0" : "mb-2"}`}
+                    >
                       <div className="flex items-center gap-2">
                         <span className="ss-number">
-                          {String(idx + (attachedMark ? 5 : 4)).padStart(
-                            2,
-                            "0",
-                          )}
+                          {attachedMark ? "03" : "02"}
                         </span>
-                        <span className="ss-title whitespace-nowrap flex-shrink-0">
-                          {t(`labelOrnament${idx + 1}` as any) ||
-                            `ORNAMENT ${idx + 1}`}
+                        <span className="ss-title flex-shrink-0">
+                          {t("labelSubText")}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-3">
                         <button
-                          onClick={() => {
-                            setCollapsedOrnaments((prev) => {
-                              const next = [...prev];
-                              next[idx] = !next[idx];
-                              return next;
-                            });
-                          }}
-                          className="p-1 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100 mr-2"
+                          onClick={() => setCollapsedSub(!collapsedSub)}
+                          className="p-1 w-6 h-6 shrink-0 flex justify-center items-center text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                         >
-                          {collapsedOrnaments[idx] ? "＋" : "−"}
+                          {collapsedSub ? <Plus size={14} /> : <Minus size={14} />}
                         </button>
-                        {idx > 0 && (
-                          <button
-                            onClick={() => {
-                              const newOrn = [...ornaments];
-                              const temp = newOrn[idx - 1];
-                              newOrn[idx - 1] = newOrn[idx];
-                              newOrn[idx] = temp;
-                              setOrnaments(newOrn);
-                            }}
-                            className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                            title="Move Up (Render Below)"
-                          >
-                            ↑
-                          </button>
-                        )}
-                        {idx < ornaments.length - 1 && (
-                          <button
-                            onClick={() => {
-                              const newOrn = [...ornaments];
-                              const temp = newOrn[idx + 1];
-                              newOrn[idx + 1] = newOrn[idx];
-                              newOrn[idx] = temp;
-                              setOrnaments(newOrn);
-                            }}
-                            className="p-1 hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
-                            title="Move Down (Render Above)"
-                          >
-                            ↓
-                          </button>
-                        )}
-                        <ResetBtn
-                          onClick={() => {
-                            const newOrn = [...ornaments];
-                            newOrn[idx] = {
-                              type: "none",
-                              offsetX: 0,
-                              offsetY: 0,
-                              scale: 1.0,
-                              width: 1.0,
-                              thickness: 15,
-                              dash: 0,
-                              color: "#000000",
-                            };
-                            setOrnaments(newOrn);
-                          }}
-                        />
+                        <div className="flex items-center gap-1">
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                          <div className="w-6 h-6 shrink-0"></div>
+                        </div>
                       </div>
                     </div>
-                    {!collapsedOrnaments[idx] && (
+                    {!collapsedSub && (
                       <>
+                        <textarea
+                          className="ss-input py-2 px-3 text-[10px] h-12 resize-none leading-relaxed mb-3"
+                          value={subPrompt}
+                          onChange={(e) => setSubPrompt(e.target.value)}
+                        />
                         <select
-                          value={ornament.type}
-                          onChange={(e) => {
-                            const newOrn = [...ornaments];
-                            newOrn[idx].type = e.target.value;
-                            setOrnaments(newOrn);
-                          }}
+                          value={fontSub}
+                          onChange={(e) => setFontSub(e.target.value)}
                           className="ss-select w-full mb-3"
+                          style={{ fontFamily: fontSub }}
                         >
-                          {ORNAMENTS.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {t(o.labelKey as any)}
+                          {FONTS.map((f) => (
+                            <option
+                              key={f.name}
+                              value={f.value}
+                              style={{ fontFamily: f.value }}
+                            >
+                              {f.name}
                             </option>
                           ))}
                         </select>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelSize")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {sizeSub}PX
+                          </span>
+                          <ResetBtn onClick={() => setSizeSub(30)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          step="1"
+                          value={sizeSub}
+                          onChange={(e) => setSizeSub(Number(e.target.value))}
+                          className="ss-slider mb-4"
+                        />
 
-                        {ornament.type !== "none" && (
-                          <div className="animate-fade-in mt-2 border-t border-[var(--border-base)] pt-3">
-                            <div className="flex gap-2">
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelHorizontalPos")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.offsetX}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].offsetX = 0;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>EDGE WIDTH</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {outlineWidthSub}PX
+                          </span>
+                          <ResetBtn onClick={() => setOutlineWidthSub(0)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          step="1"
+                          value={outlineWidthSub}
+                          onChange={(e) =>
+                            setOutlineWidthSub(Number(e.target.value))
+                          }
+                          className="ss-slider mb-4"
+                        />
 
-                                <input
-                                  type="range"
-                                  min="-1000"
-                                  max="1000"
-                                  step="10"
-                                  value={ornament.offsetX}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].offsetX = Number(
-                                      e.target.value,
-                                    );
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-4"
-                                />
-                              </div>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelSubTracking")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {subLetterSpacing}PX
+                          </span>
+                          <ResetBtn onClick={() => setSubLetterSpacing(5)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="-20"
+                          max="100"
+                          step="1"
+                          value={subLetterSpacing}
+                          onChange={(e) =>
+                            setSubLetterSpacing(Number(e.target.value))
+                          }
+                          className="ss-slider mb-4"
+                        />
 
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelVerticalPos")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.offsetY}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].offsetY = 0;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
+                        <div className="ss-label mb-2 flex items-center">
+                          <span>{t("labelSubLineSpace")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {subLineHeight.toFixed(1)}
+                          </span>
+                          <ResetBtn onClick={() => setSubLineHeight(1.5)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="3.0"
+                          step="0.1"
+                          value={subLineHeight}
+                          onChange={(e) =>
+                            setSubLineHeight(Number(e.target.value))
+                          }
+                          className="ss-slider mb-4"
+                        />
 
-                                <input
-                                  type="range"
-                                  min="-1000"
-                                  max="1000"
-                                  step="10"
-                                  value={ornament.offsetY}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].offsetY = Number(
-                                      e.target.value,
-                                    );
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-4"
-                                />
-                              </div>
-                            </div>
+                        <div className="ss-label mb-2 text-[9px] flex items-center">
+                          <span>{t("labelSubX")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {subOffsetX}PX
+                          </span>
+                          <ResetBtn onClick={() => setSubOffsetX(0)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="-1500"
+                          max="1500"
+                          step="10"
+                          value={subOffsetX}
+                          onChange={(e) =>
+                            setSubOffsetX(Number(e.target.value))
+                          }
+                          className="ss-slider mb-4"
+                        />
 
-                            <div className="flex gap-2">
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelOrnamentScale")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.scale.toFixed(1)}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].scale = 1.0;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
-
-                                <input
-                                  type="range"
-                                  min="0.1"
-                                  max="5.0"
-                                  step="0.1"
-                                  value={ornament.scale}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].scale = Number(e.target.value);
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-4"
-                                />
-                              </div>
-
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelOrnamentWidth")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.width.toFixed(1)}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].width = 1.0;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
-
-                                <input
-                                  type="range"
-                                  min="0.1"
-                                  max="5.0"
-                                  step="0.1"
-                                  value={ornament.width}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].width = Number(e.target.value);
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-4"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelOrnamentThickness")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.thickness}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].thickness = 15;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
-
-                                <input
-                                  type="range"
-                                  min="1"
-                                  max="100"
-                                  step="1"
-                                  value={ornament.thickness}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].thickness = Number(
-                                      e.target.value,
-                                    );
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-2"
-                                />
-                              </div>
-
-                              <div className="flex-1">
-                                <div className="ss-label mb-2 text-[9px] flex items-center">
-                                  <span>{t("labelOrnamentDash")}</span>
-                                  <span className="ml-auto opacity-70 mr-1">
-                                    {ornament.dash}
-                                  </span>
-                                  <ResetBtn
-                                    onClick={() => {
-                                      const newOrn = [...ornaments];
-                                      newOrn[idx].dash = 0;
-                                      setOrnaments(newOrn);
-                                    }}
-                                  />
-                                </div>
-
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="100"
-                                  step="5"
-                                  value={ornament.dash}
-                                  onChange={(e) => {
-                                    const newOrn = [...ornaments];
-                                    newOrn[idx].dash = Number(e.target.value);
-                                    setOrnaments(newOrn);
-                                  }}
-                                  className="ss-slider mb-2"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        <div className="ss-label mb-2 text-[9px] flex items-center">
+                          <span>{t("labelSubY")}</span>
+                          <span className="ml-auto opacity-70 mr-2">
+                            {subOffsetY}PX
+                          </span>
+                          <ResetBtn onClick={() => setSubOffsetY(100)} />
+                        </div>
+                        <input
+                          type="range"
+                          min="-1500"
+                          max="1500"
+                          step="10"
+                          value={subOffsetY}
+                          onChange={(e) =>
+                            setSubOffsetY(Number(e.target.value))
+                          }
+                          className="ss-slider mb-2"
+                        />
                       </>
                     )}
                   </div>
-                ))}
-              </>
+                  <div className="ss-panel p-3 animate-fade-in">
+                    <div className="ss-label mb-2 mt-1">
+                      <span className="ss-number">
+                        {attachedMark ? "04" : "03"}
+                      </span>
+                      <span className="ss-title">{t("labelCharSettings")}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-2 mb-2 mt-3">
+                      <button
+                        onClick={() => setTextAlign("left")}
+                        className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "left" ? "ss-btn-active" : ""}`}
+                      >
+                        {t("labelAlignLeft")}
+                      </button>
+                      <button
+                        onClick={() => setTextAlign("center")}
+                        className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "center" ? "ss-btn-active" : ""}`}
+                      >
+                        {t("labelAlignCenter")}
+                      </button>
+                      <button
+                        onClick={() => setTextAlign("right")}
+                        className={`flex-1 ss-btn py-1.5 flex justify-center ${textAlign === "right" ? "ss-btn-active" : ""}`}
+                      >
+                        {t("labelAlignRight")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeTab === "mark" && (
@@ -4278,7 +4358,7 @@ const App: React.FC = () => {
               {t("tabDataLabel")}
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-scroll p-4 flex flex-col gap-4 relative">
             {activeRightTab === "3d" && (
               <>
                 <div className="ss-panel p-3 animate-fade-in">
@@ -4347,7 +4427,7 @@ const App: React.FC = () => {
                     <span className="ss-number">02</span>
                     <span className="ss-title">{t("label3DEffects")}</span>
                   </div>
-                  <div className="flex flex-col gap-1 overflow-y-auto">
+                  <div className="flex flex-col gap-1 overflow-y-scroll">
                     {EFFECTS.map((e) => (
                       <button
                         key={e.id}
@@ -4394,7 +4474,7 @@ const App: React.FC = () => {
                   <span className="ss-number">04</span>
                   <span className="ss-title">{t("labelHistory")}</span>
                 </div>
-                <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+                <div className="flex-1 flex flex-col gap-2 overflow-y-scroll">
                   {history.length > 0 ? (
                     history.map((sn, idx) => (
                       <div
