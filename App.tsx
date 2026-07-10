@@ -1084,7 +1084,7 @@ const App: React.FC = () => {
     } catch (e) {}
     return [
       {
-        type: "solid_circle",
+        type: "none",
         offsetX: 0,
         offsetY: 0,
         scale: 0.35,
@@ -1577,7 +1577,7 @@ const App: React.FC = () => {
     setBgColor("#FFFFFF");
     setOrnaments([
       {
-        type: "solid_circle",
+        type: "none",
         offsetX: 0,
         offsetY: 0,
         scale: 0.35,
