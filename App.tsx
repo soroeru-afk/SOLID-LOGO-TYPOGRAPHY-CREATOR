@@ -1221,7 +1221,9 @@ const App: React.FC = () => {
   );
 
   const [autoRotate, setAutoRotate] = useState(false);
-  const [uiTheme, setUiTheme] = useState("DARK");
+  const [uiTheme, setUiTheme] = useState(
+    () => localStorage.getItem("solid_typography_uiTheme") || "DARK",
+  );
 
   useEffect(() => {
     try {
@@ -1355,12 +1357,32 @@ const App: React.FC = () => {
   const [showGrid, setShowGrid] = useState(true);
 
   // Tab Management
-  const [tabs, setTabs] = useState<
-    { id: string; name: string; settings: any }[]
-  >([{ id: "tab-1", name: "TAB 01", settings: null }]);
-  const [activeTabId, setActiveTabId] = useState<string>("tab-1");
+  const [tabs, setTabs] = useState<{ id: string; name: string; settings: any }[]>(() => {
+    try {
+      const saved = localStorage.getItem("solid_typography_tabs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [{ id: "tab-1", name: "TAB 01", settings: null }];
+  });
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("solid_typography_activeTabId");
+      if (saved) return saved;
+    } catch (e) {}
+    return "tab-1";
+  });
   const isDraggingImage = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("solid_typography_tabs", JSON.stringify(tabs));
+      localStorage.setItem("solid_typography_activeTabId", activeTabId);
+    } catch (e) {}
+  }, [tabs, activeTabId]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (viewMode !== "image") return;
@@ -1502,7 +1524,16 @@ const App: React.FC = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
       encodeURIComponent(JSON.stringify(settings));
-    const exportFileDefaultName = "typography_settings.json";
+    
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const dateStr = `${YYYY}${MM}${DD}_${hh}${mm}`;
+    
+    const exportFileDefaultName = `typography_settings_${dateStr}.json`;
 
     const linkElement = document.createElement("a");
     linkElement.setAttribute("href", dataStr);
@@ -1768,12 +1799,28 @@ const App: React.FC = () => {
         cleanUrl.searchParams.delete("new");
         window.history.replaceState({}, document.title, cleanUrl.toString());
       } catch (e) {}
+    } else {
+      // Restore settings of the active tab on mount
+      try {
+        const savedTabs = localStorage.getItem("solid_typography_tabs");
+        const savedActiveId = localStorage.getItem("solid_typography_activeTabId") || "tab-1";
+        if (savedTabs) {
+          const parsed = JSON.parse(savedTabs);
+          const activeTab = parsed.find((t: any) => t.id === savedActiveId);
+          if (activeTab && activeTab.settings) {
+            applySettings(activeTab.settings);
+          }
+        }
+      } catch (e) {}
     }
   }, []);
 
   // Theme Sync
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", uiTheme);
+    try {
+      localStorage.setItem("solid_typography_uiTheme", uiTheme);
+    } catch (e) {}
   }, [uiTheme]);
 
   // Initial render when fonts load
@@ -2693,7 +2740,16 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `solid-typography-export-${Date.now()}.html`;
+    
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const dateStr = `${YYYY}${MM}${DD}_${hh}${mm}`;
+    
+    a.download = `solid-typography-export-${dateStr}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
