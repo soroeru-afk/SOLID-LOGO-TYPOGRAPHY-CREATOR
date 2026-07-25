@@ -504,6 +504,79 @@ const getInitialEffectSettings = () => {
 };
 
 const App: React.FC = () => {
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("solid_typography_left_width");
+    return saved ? parseInt(saved, 10) : 288;
+  });
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("solid_typography_right_width");
+    return saved ? parseInt(saved, 10) : 256;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(
+      "solid_typography_left_width",
+      leftSidebarWidth.toString(),
+    );
+  }, [leftSidebarWidth]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "solid_typography_right_width",
+      rightSidebarWidth.toString(),
+    );
+  }, [rightSidebarWidth]);
+  const leftSidebarRef = useRef<HTMLDivElement>(null);
+  const rightSidebarRef = useRef<HTMLDivElement>(null);
+
+  const handleLeftSidebarResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftSidebarWidth;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(
+        200,
+        Math.min(startWidth + (e.clientX - startX), 600),
+      );
+      setLeftSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "default";
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+  };
+
+  const handleRightSidebarResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = rightSidebarWidth;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(
+        200,
+        Math.min(startWidth - (e.clientX - startX), 600),
+      );
+      setRightSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "default";
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+  };
+
   const [lang, setLang] = useState<Language>(
     () => (localStorage.getItem("solid_typography_lang") as Language) || "ja",
   );
@@ -2843,7 +2916,11 @@ const App: React.FC = () => {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* LEFT SIDEBAR: PARAMETERS */}
-        <aside className="w-72 border-r border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
+        <aside
+          ref={leftSidebarRef}
+          style={{ width: leftSidebarWidth }}
+          className="border-r border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden"
+        >
           <div className="px-4 pt-4 pb-0 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[9px] font-bold text-[var(--text-base)] uppercase tracking-widest mb-1">
@@ -4306,6 +4383,13 @@ const App: React.FC = () => {
           </div>
         </aside>
 
+        <div
+          className="group w-2 -ml-1 -mr-1 bg-transparent cursor-col-resize shrink-0 z-10 flex justify-center transition-colors"
+          onMouseDown={handleLeftSidebarResize}
+        >
+          <div className="w-[2px] h-full bg-transparent group-hover:bg-[var(--active-color)] transition-colors" />
+        </div>
+
         {/* MAIN VIEWPORT */}
         <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-main)]/20 relative">
           {/* Tabs Bar */}
@@ -4596,8 +4680,19 @@ const App: React.FC = () => {
           )}
         </main>
 
+        <div
+          className="group w-2 -ml-1 -mr-1 bg-transparent cursor-col-resize shrink-0 z-10 flex justify-center transition-colors"
+          onMouseDown={handleRightSidebarResize}
+        >
+          <div className="w-[2px] h-full bg-transparent group-hover:bg-[var(--active-color)] transition-colors" />
+        </div>
+
         {/* RIGHT SIDEBAR: SETTINGS & HISTORY */}
-        <aside className="w-64 border-l border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
+        <aside
+          ref={rightSidebarRef}
+          style={{ width: rightSidebarWidth }}
+          className="border-l border-[var(--border-base)] bg-[var(--bg-panel)]/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden"
+        >
           <div className="flex shrink-0 px-4 pt-4 pb-0 gap-2 border-b border-[var(--border-base)] pb-3 mb-1">
             <button
               onClick={() => setActiveRightTab("3d")}

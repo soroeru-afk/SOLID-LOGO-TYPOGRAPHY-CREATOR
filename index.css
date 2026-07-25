@@ -38,7 +38,7 @@
     --bg-panel: #170707;
     --bg-input: #080202;
     --bg-btn: #2e1010;
-    --bg-btn-active: #7A2C25;
+    --bg-btn-active: #7a2c25;
     --border-base: #4a1919;
     --text-base: #a38282;
     --text-bright: #ffffff;
@@ -51,7 +51,7 @@
     --bg-input: #f1f5f9;
     --bg-btn: #f8fafc;
     --bg-btn-active: #64748b;
-    --border-base: #94a3b8;
+    --border-base: #e2e8f0;
     --text-base: #1e293b;
     --text-bright: #020617;
     --accent: #334155;
@@ -183,7 +183,7 @@
   height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-main);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-base);
