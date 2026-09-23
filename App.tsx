@@ -1544,7 +1544,13 @@ const App: React.FC = () => {
   );
 
   const [autoRotate, setAutoRotate] = useState(false);
-  const [uiTheme, setUiTheme] = useState("DARK");
+  const [uiTheme, setUiTheme] = useState(() => {
+    try {
+      return localStorage.getItem("solid_typography_uiTheme") || "DARK";
+    } catch (e) {
+      return "DARK";
+    }
+  });
 
   useEffect(() => {
     try {
@@ -1769,6 +1775,20 @@ const App: React.FC = () => {
       setAttachedMarkOffsetX(setts.attachedMarkOffsetX);
     if (setts.attachedMarkOffsetY !== undefined)
       setAttachedMarkOffsetY(setts.attachedMarkOffsetY);
+    if (setts.outlineMain !== undefined) setOutlineMain(setts.outlineMain);
+    if (setts.outlineWidthMain !== undefined) setOutlineWidthMain(setts.outlineWidthMain);
+    if (setts.outlineSub !== undefined) setOutlineSub(setts.outlineSub);
+    if (setts.outlineWidthSub !== undefined) setOutlineWidthSub(setts.outlineWidthSub);
+    if (setts.outlineMark !== undefined) setOutlineMark(setts.outlineMark);
+    if (setts.outlineWidthMark !== undefined) setOutlineWidthMark(setts.outlineWidthMark);
+    if (setts.shadowColor !== undefined) setShadowColor(setts.shadowColor);
+    if (setts.shadowBlur !== undefined) setShadowBlur(setts.shadowBlur);
+    if (setts.shadowOffsetX !== undefined) setShadowOffsetX(setts.shadowOffsetX);
+    if (setts.shadowOffsetY !== undefined) setShadowOffsetY(setts.shadowOffsetY);
+    if (setts.photoImages !== undefined && Array.isArray(setts.photoImages)) setPhotoImages(setts.photoImages);
+    if (setts.visibleMainText !== undefined) setVisibleMainText(setts.visibleMainText);
+    if (setts.visibleSubText !== undefined) setVisibleSubText(setts.visibleSubText);
+    if (setts.visibleMark !== undefined) setVisibleMark(setts.visibleMark);
     if (setts.layerOrder !== undefined && Array.isArray(setts.layerOrder))
       setLayerOrder(setts.layerOrder);
   };
@@ -1822,15 +1842,33 @@ const App: React.FC = () => {
     attachedMarkOffsetY,
     layerOrder,
     photoImages,
+    visibleMainText,
+    visibleSubText,
+    visibleMark,
   });
 
   const exportSettings = () => {
-    const settings = getCurrentSettings();
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    const dateStr = `${yyyy}${MM}${DD}_${hh}${mm}${ss}`;
+    const formattedDate = `${yyyy}-${MM}-${DD} ${hh}:${mm}:${ss}`;
+
+    const current = getCurrentSettings();
+    const settingsWithMeta = {
+      exportedAt: now.toISOString(),
+      exportedDate: formattedDate,
+      ...current,
+    };
+
     const dataStr =
       "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify(settings));
-    const exportFileDefaultName = "typography_settings.json";
-
+      encodeURIComponent(JSON.stringify(settingsWithMeta, null, 2));
+    const exportFileDefaultName = `typography_settings_${dateStr}.json`;
     const linkElement = document.createElement("a");
     linkElement.setAttribute("href", dataStr);
     linkElement.setAttribute("download", exportFileDefaultName);
@@ -1844,62 +1882,9 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       try {
         const settings = JSON.parse(e.target?.result as string);
-        if (settings.prompt !== undefined) setPrompt(settings.prompt);
-        if (settings.fontMain !== undefined) setFontMain(settings.fontMain);
-        if (settings.sizeMain !== undefined) setSizeMain(settings.sizeMain);
-        if (settings.subPrompt !== undefined) setSubPrompt(settings.subPrompt);
-        if (settings.fontSub !== undefined) setFontSub(settings.fontSub);
-        if (settings.sizeSub !== undefined) setSizeSub(settings.sizeSub);
-        if (settings.globalScale !== undefined)
-          setGlobalScale(settings.globalScale);
-        if (settings.globalOffsetX !== undefined)
-          setGlobalOffsetX(settings.globalOffsetX);
-        if (settings.globalOffsetY !== undefined)
-          setGlobalOffsetY(settings.globalOffsetY);
-        if (settings.mainOffsetX !== undefined)
-          setMainOffsetX(settings.mainOffsetX);
-        if (settings.mainOffsetY !== undefined)
-          setMainOffsetY(settings.mainOffsetY);
-        if (settings.subOffsetX !== undefined)
-          setSubOffsetX(settings.subOffsetX);
-        if (settings.subOffsetY !== undefined)
-          setSubOffsetY(settings.subOffsetY);
-        if (settings.textAlign !== undefined) setTextAlign(settings.textAlign);
-        if (settings.mainLetterSpacing !== undefined)
-          setMainLetterSpacing(settings.mainLetterSpacing);
-        if (settings.mainLineHeight !== undefined)
-          setMainLineHeight(settings.mainLineHeight);
-        if (settings.subLetterSpacing !== undefined)
-          setSubLetterSpacing(settings.subLetterSpacing);
-        if (settings.subLineHeight !== undefined)
-          setSubLineHeight(settings.subLineHeight);
-        if (settings.skewX !== undefined) setSkewX(settings.skewX);
-        if (settings.skewY !== undefined) setSkewY(settings.skewY);
-        if (settings.colorFace !== undefined) setColorFace(settings.colorFace);
-        if (settings.colorMain !== undefined) setColorMain(settings.colorMain);
-        if (settings.colorSub !== undefined) setColorSub(settings.colorSub);
-        if (settings.colorMark !== undefined) setColorMark(settings.colorMark);
-        if (settings.colorSide !== undefined) setColorSide(settings.colorSide);
-        if (settings.bgColor !== undefined) setBgColor(settings.bgColor);
-        if (settings.ornaments !== undefined) setOrnaments(settings.ornaments);
-        if (settings.resolution !== undefined)
-          setResolution(settings.resolution);
-        if (settings.thickness !== undefined) setThickness(settings.thickness);
-        if (settings.autoRotate !== undefined)
-          setAutoRotate(settings.autoRotate);
-        if (settings.lighting !== undefined) setLighting(settings.lighting);
-        if (settings.effectStyle !== undefined)
-          setEffectStyle(settings.effectStyle);
-        if (settings.attachedMark !== undefined)
-          setAttachedMark(settings.attachedMark);
-        if (settings.attachedMarkScale !== undefined)
-          setAttachedMarkScale(settings.attachedMarkScale);
-        if (settings.attachedMarkOffsetX !== undefined)
-          setAttachedMarkOffsetX(settings.attachedMarkOffsetX);
-        if (settings.attachedMarkOffsetY !== undefined)
-          setAttachedMarkOffsetY(settings.attachedMarkOffsetY);
+        applySettings(settings);
       } catch (err) {
-        console.error("Invalid settings file");
+        console.error("Invalid settings file", err);
         alert("Invalid settings file");
       }
     };
@@ -2079,9 +2064,26 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Theme Sync
+  // Theme Sync & PWA theme-color dynamic update
   useEffect(() => {
+    try {
+      localStorage.setItem("solid_typography_uiTheme", uiTheme);
+    } catch (e) {}
     document.documentElement.setAttribute("data-theme", uiTheme);
+
+    let themeColor = "#111418";
+    if (uiTheme === "BLACK") themeColor = "#0d0d0d";
+    else if (uiTheme === "RED") themeColor = "#170707";
+    else if (uiTheme === "WHITE") themeColor = "#ffffff";
+    else if (uiTheme === "DARK") themeColor = "#111418";
+
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement("meta");
+      metaThemeColor.setAttribute("name", "theme-color");
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute("content", themeColor);
   }, [uiTheme]);
 
   // Initial render when fonts load
