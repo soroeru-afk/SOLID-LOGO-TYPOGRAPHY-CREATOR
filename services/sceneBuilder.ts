@@ -22,18 +22,11 @@ export const buildThreeJsScene = (
     canvas { display: block; }
     #loader { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#8a95a3; letter-spacing:0.3em; font-size:10px; font-weight:bold; }
   </style>
-  <script>
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-      var loader = document.getElementById('loader');
-      if(loader) loader.innerText = 'ERROR: ' + msg;
-      return false;
-    };
-  </script>
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
       }
     }
   </script>
@@ -110,6 +103,7 @@ export const buildThreeJsScene = (
 
   // Load image and generate
   const img = new Image();
+  img.src = TEXT_IMAGE_BASE64;
   
   let instancedMesh;
   
@@ -285,8 +279,6 @@ export const buildThreeJsScene = (
        scene.fog = new THREE.Fog(BG_COLOR, distToFront * 0.8, distToFront * 3.0);
     }
   };
-
-  img.src = TEXT_IMAGE_BASE64;
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
