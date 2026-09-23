@@ -1686,8 +1686,112 @@ const App: React.FC = () => {
   // Tab Management
   const [tabs, setTabs] = useState<
     { id: string; name: string; settings: any }[]
-  >([{ id: "tab-1", name: "TAB 01", settings: null }]);
-  const [activeTabId, setActiveTabId] = useState<string>("tab-1");
+  >(() => {
+    try {
+      const saved = localStorage.getItem("solid_typography_tabs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [{ id: "tab-1", name: "TAB 01", settings: null }];
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("solid_typography_activeTabId");
+      if (saved) return saved;
+    } catch (e) {}
+    return "tab-1";
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("solid_typography_tabs", JSON.stringify(tabs));
+    } catch (e) {}
+  }, [tabs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("solid_typography_activeTabId", activeTabId);
+    } catch (e) {}
+  }, [activeTabId]);
+
+  // Restore active tab's settings on initial mount if present
+  useEffect(() => {
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (activeTab && activeTab.settings) {
+      applySettings(activeTab.settings);
+    }
+  }, []);
+
+  // Continuously sync active tab settings so all tabs in localStorage stay up-to-date
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const cur = getCurrentSettings();
+      setTabs((prev) => {
+        const existing = prev.find((t) => t.id === activeTabId);
+        if (existing && JSON.stringify(existing.settings) === JSON.stringify(cur)) {
+          return prev;
+        }
+        return prev.map((t) => (t.id === activeTabId ? { ...t, settings: cur } : t));
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [
+    activeTabId,
+    prompt,
+    fontMain,
+    sizeMain,
+    subPrompt,
+    fontSub,
+    sizeSub,
+    globalScale,
+    globalOffsetX,
+    globalOffsetY,
+    mainOffsetX,
+    mainOffsetY,
+    subOffsetX,
+    subOffsetY,
+    textAlign,
+    mainLetterSpacing,
+    mainLineHeight,
+    subLetterSpacing,
+    subLineHeight,
+    skewX,
+    skewY,
+    colorFace,
+    colorMain,
+    colorSub,
+    colorMark,
+    colorSide,
+    bgColor,
+    outlineMain,
+    outlineWidthMain,
+    outlineSub,
+    outlineWidthSub,
+    outlineMark,
+    outlineWidthMark,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    ornaments,
+    resolution,
+    thickness,
+    autoRotate,
+    lighting,
+    effectStyle,
+    attachedMark,
+    attachedMarkScale,
+    attachedMarkOffsetX,
+    attachedMarkOffsetY,
+    layerOrder,
+    photoImages,
+    visibleMainText,
+    visibleSubText,
+    visibleMark,
+  ]);
   const isDraggingImage = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
@@ -1859,15 +1963,24 @@ const App: React.FC = () => {
     const formattedDate = `${yyyy}-${MM}-${DD} ${hh}:${mm}:${ss}`;
 
     const current = getCurrentSettings();
-    const settingsWithMeta = {
+    // Update active tab in tabs array with current canvas settings
+    const updatedTabs = tabs.map((t) =>
+      t.id === activeTabId ? { ...t, settings: current } : t,
+    );
+    setTabs(updatedTabs);
+
+    const exportData = {
+      version: 2,
       exportedAt: now.toISOString(),
       exportedDate: formattedDate,
+      activeTabId,
+      tabs: updatedTabs,
       ...current,
     };
 
     const dataStr =
       "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify(settingsWithMeta, null, 2));
+      encodeURIComponent(JSON.stringify(exportData, null, 2));
     const exportFileDefaultName = `typography_settings_${dateStr}.json`;
     const linkElement = document.createElement("a");
     linkElement.setAttribute("href", dataStr);
@@ -1881,8 +1994,30 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const settings = JSON.parse(e.target?.result as string);
-        applySettings(settings);
+        const data = JSON.parse(e.target?.result as string);
+        if (data && Array.isArray(data.tabs) && data.tabs.length > 0) {
+          // Full multi-tab export file
+          setTabs(data.tabs);
+          const targetId =
+            data.activeTabId && data.tabs.some((t: any) => t.id === data.activeTabId)
+              ? data.activeTabId
+              : data.tabs[0].id;
+          setActiveTabId(targetId);
+          const activeTab = data.tabs.find((t: any) => t.id === targetId) || data.tabs[0];
+          if (activeTab && activeTab.settings) {
+            applySettings(activeTab.settings);
+          } else {
+            applySettings(data);
+          }
+        } else {
+          // Single-tab legacy export file
+          applySettings(data);
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTabId ? { ...t, settings: getCurrentSettings() } : t,
+            ),
+          );
+        }
       } catch (err) {
         console.error("Invalid settings file", err);
         alert("Invalid settings file");
@@ -1893,24 +2028,22 @@ const App: React.FC = () => {
   };
 
   const switchTab = (tabId: string) => {
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.id === activeTabId ? { ...t, settings: getCurrentSettings() } : t,
-      ),
+    const current = getCurrentSettings();
+    const updatedTabs = tabs.map((t) =>
+      t.id === activeTabId ? { ...t, settings: current } : t,
     );
-    const targetTab = tabs.find((t) => t.id === tabId);
+    setTabs(updatedTabs);
+    const targetTab = updatedTabs.find((t) => t.id === tabId);
     if (targetTab && targetTab.settings) {
       applySettings(targetTab.settings);
+    } else {
+      clearCanvas();
     }
     setActiveTabId(tabId);
   };
 
   const addNewTab = () => {
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.id === activeTabId ? { ...t, settings: getCurrentSettings() } : t,
-      ),
-    );
+    const current = getCurrentSettings();
     const newId =
       "tab-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
     const index = tabs.length + 1;
@@ -1919,7 +2052,10 @@ const App: React.FC = () => {
       name: `TAB ${String(index).padStart(2, "0")}`,
       settings: null,
     };
-    setTabs((prev) => [...prev, newTab]);
+    const updatedTabs = tabs.map((t) =>
+      t.id === activeTabId ? { ...t, settings: current } : t,
+    );
+    setTabs([...updatedTabs, newTab]);
     setActiveTabId(newId);
     clearCanvas();
   };
