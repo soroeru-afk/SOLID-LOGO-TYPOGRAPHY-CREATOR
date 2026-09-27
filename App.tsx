@@ -14,6 +14,7 @@ import {
   Download,
   RotateCcw,
   Undo2,
+  Redo2,
   CheckCircle2,
   Zap,
   Terminal,
@@ -201,6 +202,8 @@ const TRANSLATIONS = {
     btnConfigExport: "EXPORT",
     btnConfigImport: "IMPORT",
     label3DEffects: "3D EFFECTS",
+    btnUndo: "UNDO",
+    btnRedo: "REDO",
   },
   ja: {
     tabText: "TEXT",
@@ -355,6 +358,8 @@ const TRANSLATIONS = {
     btnConfigExport: "EXPORT",
     btnConfigImport: "IMPORT",
     label3DEffects: "3Dエフェクト",
+    btnUndo: "戻る",
+    btnRedo: "進む",
   },
 };
 
@@ -1951,6 +1956,235 @@ const App: React.FC = () => {
     visibleMark,
   });
 
+  // ==========================================
+  // 作業履歴 (Undo / Redo) システム
+  // ==========================================
+  const [historyState, setHistoryState] = useState<{
+    stack: any[];
+    index: number;
+  }>({
+    stack: [],
+    index: -1,
+  });
+  const historyStateRef = useRef(historyState);
+  historyStateRef.current = historyState;
+
+  const isApplyingHistory = useRef(false);
+  const historyInitializedRef = useRef(false);
+  const tabHistoriesRef = useRef<{
+    [tabId: string]: { stack: any[]; index: number };
+  }>({});
+
+  const canUndo = historyState.index > 0;
+  const canRedo =
+    historyState.index >= 0 &&
+    historyState.index < historyState.stack.length - 1;
+
+  // 初期化時に現在のキャンバス状態を履歴の先頭 (index: 0) に登録
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!historyInitializedRef.current) {
+        const cur = getCurrentSettings();
+        const initial = { stack: [cur], index: 0 };
+        setHistoryState(initial);
+        tabHistoriesRef.current[activeTabId] = initial;
+        historyInitializedRef.current = true;
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // キャンバス設定変更時に履歴を追跡・記録 (500msデバウンスでスライダーの連続操作も1ステップに集約)
+  useEffect(() => {
+    if (!historyInitializedRef.current) return;
+    if (isApplyingHistory.current) return;
+
+    const timer = setTimeout(() => {
+      if (isApplyingHistory.current) return;
+      const cur = getCurrentSettings();
+
+      setHistoryState((prev) => {
+        const currentRecorded =
+          prev.index >= 0 && prev.index < prev.stack.length
+            ? prev.stack[prev.index]
+            : null;
+
+        // 記録済みの最新状態と同一なら追加しない
+        if (
+          currentRecorded &&
+          JSON.stringify(currentRecorded) === JSON.stringify(cur)
+        ) {
+          return prev;
+        }
+
+        // 新しい編集が行われた場合、現在の位置以降の進む履歴を破棄して新しい状態を追加
+        const newStack = prev.stack.slice(0, prev.index + 1);
+        newStack.push(cur);
+
+        // 最大60ステップまで保持
+        if (newStack.length > 60) {
+          newStack.shift();
+        }
+
+        const next = { stack: newStack, index: newStack.length - 1 };
+        tabHistoriesRef.current[activeTabId] = next;
+        return next;
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [
+    activeTabId,
+    prompt,
+    fontMain,
+    sizeMain,
+    subPrompt,
+    fontSub,
+    sizeSub,
+    globalScale,
+    globalOffsetX,
+    globalOffsetY,
+    mainOffsetX,
+    mainOffsetY,
+    subOffsetX,
+    subOffsetY,
+    textAlign,
+    mainLetterSpacing,
+    mainLineHeight,
+    subLetterSpacing,
+    subLineHeight,
+    skewX,
+    skewY,
+    colorFace,
+    colorMain,
+    colorSub,
+    colorMark,
+    colorSide,
+    bgColor,
+    outlineMain,
+    outlineWidthMain,
+    outlineSub,
+    outlineWidthSub,
+    outlineMark,
+    outlineWidthMark,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    ornaments,
+    resolution,
+    thickness,
+    autoRotate,
+    lighting,
+    effectStyle,
+    attachedMark,
+    attachedMarkScale,
+    attachedMarkOffsetX,
+    attachedMarkOffsetY,
+    layerOrder,
+    photoImages,
+    visibleMainText,
+    visibleSubText,
+    visibleMark,
+  ]);
+
+  // 作業履歴: 戻る (Undo)
+  const handleUndo = () => {
+    const currentState = historyStateRef.current;
+    const cur = getCurrentSettings();
+    const currentRecorded =
+      currentState.index >= 0 && currentState.index < currentState.stack.length
+        ? currentState.stack[currentState.index]
+        : null;
+
+    let effectiveStack = currentState.stack;
+    let effectiveIndex = currentState.index;
+
+    // デバウンス未完了の最新変更がある場合、まずそれを記録してから前へ戻る
+    if (
+      currentRecorded &&
+      JSON.stringify(currentRecorded) !== JSON.stringify(cur)
+    ) {
+      effectiveStack = [
+        ...currentState.stack.slice(0, currentState.index + 1),
+        cur,
+      ];
+      if (effectiveStack.length > 60) effectiveStack.shift();
+      effectiveIndex = effectiveStack.length - 1;
+    }
+
+    if (effectiveIndex <= 0) return;
+
+    const targetIndex = effectiveIndex - 1;
+    const targetSettings = effectiveStack[targetIndex];
+    if (!targetSettings) return;
+
+    isApplyingHistory.current = true;
+    const next = { stack: effectiveStack, index: targetIndex };
+    setHistoryState(next);
+    tabHistoriesRef.current[activeTabId] = next;
+
+    applySettings(targetSettings);
+
+    setTimeout(() => {
+      isApplyingHistory.current = false;
+    }, 150);
+  };
+
+  // 作業履歴: 進む (Redo)
+  const handleRedo = () => {
+    const currentState = historyStateRef.current;
+    if (
+      currentState.index < 0 ||
+      currentState.index >= currentState.stack.length - 1
+    )
+      return;
+
+    const targetIndex = currentState.index + 1;
+    const targetSettings = currentState.stack[targetIndex];
+    if (!targetSettings) return;
+
+    isApplyingHistory.current = true;
+    const next = { stack: currentState.stack, index: targetIndex };
+    setHistoryState(next);
+    tabHistoriesRef.current[activeTabId] = next;
+
+    applySettings(targetSettings);
+
+    setTimeout(() => {
+      isApplyingHistory.current = false;
+    }, 150);
+  };
+
+  // キーボードショートカット (Ctrl+Z / Cmd+Z で戻る, Ctrl+Y / Cmd+Shift+Z で進む)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        if (isInput) return; // テキスト入力欄の中ではブラウザ標準の元に戻すを優先
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        if (isInput) return;
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const exportSettings = () => {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -2018,6 +2252,13 @@ const App: React.FC = () => {
             ),
           );
         }
+
+        // インポート完了後、作業履歴の起点を初期化
+        setTimeout(() => {
+          const fresh = { stack: [getCurrentSettings()], index: 0 };
+          setHistoryState(fresh);
+          tabHistoriesRef.current[activeTabId] = fresh;
+        }, 100);
       } catch (err) {
         console.error("Invalid settings file", err);
         alert("Invalid settings file");
@@ -2033,13 +2274,33 @@ const App: React.FC = () => {
       t.id === activeTabId ? { ...t, settings: current } : t,
     );
     setTabs(updatedTabs);
+
+    // 現在のタブの作業履歴を保存
+    tabHistoriesRef.current[activeTabId] = historyStateRef.current;
+
     const targetTab = updatedTabs.find((t) => t.id === tabId);
+    isApplyingHistory.current = true;
     if (targetTab && targetTab.settings) {
       applySettings(targetTab.settings);
     } else {
       clearCanvas();
     }
+    setTimeout(() => {
+      isApplyingHistory.current = false;
+    }, 150);
+
     setActiveTabId(tabId);
+
+    // 移動先タブの作業履歴を復元
+    const savedHistory = tabHistoriesRef.current[tabId];
+    if (savedHistory && savedHistory.stack.length > 0) {
+      setHistoryState(savedHistory);
+    } else {
+      const initialSettings = targetTab?.settings || getCurrentSettings();
+      const freshHistory = { stack: [initialSettings], index: 0 };
+      tabHistoriesRef.current[tabId] = freshHistory;
+      setHistoryState(freshHistory);
+    }
   };
 
   const addNewTab = () => {
@@ -2056,22 +2317,54 @@ const App: React.FC = () => {
       t.id === activeTabId ? { ...t, settings: current } : t,
     );
     setTabs([...updatedTabs, newTab]);
+
+    // 現在のタブの作業履歴を保存
+    tabHistoriesRef.current[activeTabId] = historyStateRef.current;
+
     setActiveTabId(newId);
+    isApplyingHistory.current = true;
     clearCanvas();
+    setTimeout(() => {
+      isApplyingHistory.current = false;
+    }, 150);
+
+    setTimeout(() => {
+      const freshSettings = getCurrentSettings();
+      const freshHistory = { stack: [freshSettings], index: 0 };
+      tabHistoriesRef.current[newId] = freshHistory;
+      setHistoryState(freshHistory);
+    }, 50);
   };
 
   const closeTab = (tabId: string) => {
     if (tabs.length <= 1) return;
+    delete tabHistoriesRef.current[tabId];
     const newTabs = tabs.filter((t) => t.id !== tabId);
     setTabs(newTabs);
     if (activeTabId === tabId) {
       const nextTab = newTabs[newTabs.length - 1];
+      isApplyingHistory.current = true;
       if (nextTab && nextTab.settings) {
         applySettings(nextTab.settings);
       } else {
         clearCanvas();
       }
+      setTimeout(() => {
+        isApplyingHistory.current = false;
+      }, 150);
       setActiveTabId(nextTab.id);
+
+      const savedHistory = tabHistoriesRef.current[nextTab.id];
+      if (savedHistory && savedHistory.stack.length > 0) {
+        setHistoryState(savedHistory);
+      } else {
+        const freshHistory = {
+          stack: nextTab.settings ? [nextTab.settings] : [getCurrentSettings()],
+          index: 0,
+        };
+        tabHistoriesRef.current[nextTab.id] = freshHistory;
+        setHistoryState(freshHistory);
+      }
     }
   };
 
@@ -5603,7 +5896,7 @@ const App: React.FC = () => {
 
           {/* Viewport Header */}
           <div className="flex bg-[var(--bg-panel)]/60 border-b border-[var(--border-base)] shrink-0 h-[42px]">
-            <div className="flex-1 px-4 flex items-center">
+            <div className="flex-1 px-4 flex items-center overflow-x-auto scroller-hidden">
               {viewMode === "image" && (
                 <div className="flex gap-2 h-[28px]">
                   <button
@@ -5643,6 +5936,50 @@ const App: React.FC = () => {
                   >
                     <Maximize2 size={12} />{" "}
                     <span className="text-[10px] font-bold">RESET VIEW</span>
+                  </button>
+
+                  <div className="h-4 w-[1px] bg-[var(--border-base)] self-center mx-1 shrink-0" />
+
+                  {/* 作業履歴 戻る (Undo) */}
+                  <button
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    className={`ss-btn !flex-none px-3.5 !py-0 flex gap-1.5 items-center justify-center tracking-wider transition-colors active:!scale-100 ${
+                      !canUndo
+                        ? "opacity-30 cursor-not-allowed pointer-events-none"
+                        : "hover:bg-[var(--bg-btn)] cursor-pointer"
+                    }`}
+                    title={
+                      lang === "ja"
+                        ? "作業履歴を戻る (Ctrl+Z)"
+                        : "Undo (Ctrl+Z)"
+                    }
+                  >
+                    <Undo2 size={13} />
+                    <span className="text-[10px] font-bold whitespace-nowrap">
+                      {t("btnUndo")}
+                    </span>
+                  </button>
+
+                  {/* 作業履歴 進む (Redo) */}
+                  <button
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    className={`ss-btn !flex-none px-3.5 !py-0 flex gap-1.5 items-center justify-center tracking-wider transition-colors active:!scale-100 ${
+                      !canRedo
+                        ? "opacity-30 cursor-not-allowed pointer-events-none"
+                        : "hover:bg-[var(--bg-btn)] cursor-pointer"
+                    }`}
+                    title={
+                      lang === "ja"
+                        ? "作業履歴を進む (Ctrl+Y / Ctrl+Shift+Z)"
+                        : "Redo (Ctrl+Y / Ctrl+Shift+Z)"
+                    }
+                  >
+                    <Redo2 size={13} />
+                    <span className="text-[10px] font-bold whitespace-nowrap">
+                      {t("btnRedo")}
+                    </span>
                   </button>
                 </div>
               )}
