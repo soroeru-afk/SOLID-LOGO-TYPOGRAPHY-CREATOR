@@ -636,9 +636,7 @@ const App: React.FC = () => {
       localStorage.setItem("solid_typography_stockedMarks", JSON.stringify(stockedMarks));
     } catch (e) {}
   }, [stockedMarks]);
-  const [selectedStockIds, setSelectedStockIds] = useState<number[]>([]);
-  const [isDragOverStock, setIsDragOverStock] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState("");
+
   const handleSetOfficialIcon = () => {
     setAttachedMark(OFFICIAL_ICON_DATA_URL);
     setVisibleMark(true);
@@ -650,6 +648,9 @@ const App: React.FC = () => {
     });
   };
 
+  const [selectedStockIds, setSelectedStockIds] = useState<number[]>([]);
+  const [isDragOverStock, setIsDragOverStock] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState("");
   const [showApiSettings, setShowApiSettings] = useState(false);
 
   const [attachedMark, setAttachedMark] = useState<string | null>(() =>
@@ -1580,13 +1581,14 @@ const App: React.FC = () => {
   );
 
   const [autoRotate, setAutoRotate] = useState(false);
-  const [uiTheme, setUiTheme] = useState(() => {
-    try {
-      return localStorage.getItem("solid_typography_uiTheme") || "DARK";
-    } catch (e) {
-      return "DARK";
-    }
+  const [uiTheme, setUiTheme] = useState<string>(() => {
+    const saved = localStorage.getItem("solid_typography_theme");
+    if (saved === "WHITE") return "LIGHT";
+    if (saved === "NAVY") return "PEPER";
+    return saved || "PEPER";
   });
+  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+  const themeDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -2526,16 +2528,19 @@ const App: React.FC = () => {
 
   // Theme Sync & PWA theme-color dynamic update
   useEffect(() => {
+    document.documentElement.setAttribute("data-theme", uiTheme);
     try {
+      localStorage.setItem("solid_typography_theme", uiTheme);
       localStorage.setItem("solid_typography_uiTheme", uiTheme);
     } catch (e) {}
-    document.documentElement.setAttribute("data-theme", uiTheme);
 
     let themeColor = "#111418";
-    if (uiTheme === "BLACK") themeColor = "#0d0d0d";
-    else if (uiTheme === "RED") themeColor = "#170707";
-    else if (uiTheme === "WHITE") themeColor = "#ffffff";
-    else if (uiTheme === "DARK") themeColor = "#111418";
+    if (uiTheme === "PEPER") themeColor = "#EBE4D5";
+    else if (uiTheme === "LIGHT" || uiTheme === "WHITE") themeColor = "#ffffff";
+    else if (uiTheme === "OBSIDIAN") themeColor = "#121215";
+    else if (uiTheme === "BLACK") themeColor = "#000000";
+    else if (uiTheme === "RED") themeColor = "#180b0d";
+    else if (uiTheme === "MONO" || uiTheme === "DARK") themeColor = "#111418";
 
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (!metaThemeColor) {
@@ -2545,6 +2550,20 @@ const App: React.FC = () => {
     }
     metaThemeColor.setAttribute("content", themeColor);
   }, [uiTheme]);
+
+  // Click outside to close theme dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        themeDropdownRef.current &&
+        !themeDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsThemeDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Initial render when fonts load
   useEffect(() => {
@@ -3635,12 +3654,75 @@ const App: React.FC = () => {
     setTimeout(() => setThinkingText(null), 2000);
   };
 
+  const UI_THEMES = [
+    {
+      id: "LIGHT",
+      name: "LIGHT",
+      dotColor: "#ffffff",
+      dotBg: "#ffffff",
+      dotBorder: "#94a3b8",
+      dotInner: "#64748b",
+    },
+    {
+      id: "PEPER",
+      name: "PEPER",
+      dotColor: "#D95430",
+      dotBg: "#F2EFE6",
+      dotBorder: "#D95430",
+      dotInner: "#D95430",
+    },
+    {
+      id: "MONO",
+      name: "MONO",
+      dotColor: "#8a95a3",
+      dotBg: "#111418",
+      dotBorder: "#4a5568",
+      dotInner: "#cbd5e1",
+    },
+    {
+      id: "OBSIDIAN",
+      name: "OBSIDIAN",
+      dotColor: "#52525b",
+      dotBg: "#09090b",
+      dotBorder: "#3f3f46",
+      dotInner: "#71717a",
+    },
+    {
+      id: "BLACK",
+      name: "BLACK",
+      dotColor: "#000000",
+      dotBg: "#000000",
+      dotBorder: "#333333",
+      dotInner: "#222222",
+    },
+    {
+      id: "RED",
+      name: "RED",
+      dotColor: "#8a252c",
+      dotBg: "#180b0d",
+      dotBorder: "#8a252c",
+      dotInner: "#8a252c",
+    },
+  ];
+
   const themeClasses: Record<string, string> = {
+    LIGHT: "from-[#f1f5f9] to-[#e2e8f0]",
+    PEPER: "from-[#F2EFE6] to-[#EBE4D5]",
+    MONO: "from-[#0a0c10] to-[#12161b]",
     DARK: "from-[#0a0c10] to-[#12161b]",
+    OBSIDIAN: "from-[#09090b] to-[#121215]",
     BLACK: "from-black to-[#050505]",
-    RED: "from-[#0d0404] to-[#170707]",
+    RED: "from-[#0e0607] to-[#180b0d]",
     WHITE: "from-[#f1f5f9] to-[#e2e8f0]",
   };
+
+  const currentThemeOption =
+    UI_THEMES.find(
+      (t) =>
+        t.id === uiTheme ||
+        (t.id === "MONO" && uiTheme === "DARK") ||
+        (t.id === "LIGHT" && uiTheme === "WHITE"),
+    ) || UI_THEMES.find((t) => t.id === "PEPER");
 
   return (
     <div
@@ -3651,7 +3733,7 @@ const App: React.FC = () => {
       {/* 00 HEADER */}
       <header className="flex justify-between items-center shrink-0 border-b border-[var(--border-base)] px-6 py-3 bg-[var(--bg-panel)]/80 backdrop-blur-md z-50">
         <div className="flex items-center gap-3 flex-1">
-          <div className="border border-[var(--text-bright)] w-6 h-6 flex items-center justify-center shrink-0">
+          <div className="header-logo-box border border-[var(--text-bright)] w-6 h-6 flex items-center justify-center shrink-0 shadow-xs">
             <Terminal
               size={14}
               strokeWidth={2.5}
@@ -3668,27 +3750,99 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 flex-1 justify-end shrink-0 min-w-max">
-          <div className="flex items-center border border-[var(--border-base)] rounded overflow-hidden shrink-0">
-            {Object.keys(themeClasses).map((th) => (
-              <button
-                key={th}
-                onClick={() => setUiTheme(th)}
-                className={`px-3 py-1 text-[10px] whitespace-nowrap font-bold ${uiTheme === th ? "bg-[var(--text-bright)] text-[var(--bg-main)]" : "text-[#4e5d74] hover:text-[var(--text-bright)]"} transition-colors`}
-              >
-                {th}
-              </button>
-            ))}
+          {/* THEME DROPDOWN SELECTOR */}
+          <div className="relative shrink-0" ref={themeDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsThemeDropdownOpen((prev) => !prev)}
+              className="theme-dropdown-btn h-[26px] px-2.5 flex items-center gap-2 border border-[var(--border-base)] rounded bg-[var(--bg-panel)] hover:bg-[var(--bg-btn)] text-[var(--text-bright)] transition-colors cursor-pointer select-none shadow-xs"
+              title={lang === "ja" ? "テーマ切り替え" : "Switch Theme"}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0 border flex items-center justify-center shadow-xs"
+                style={{
+                  backgroundColor:
+                    currentThemeOption?.dotInner ||
+                    currentThemeOption?.dotColor ||
+                    "#D95430",
+                  borderColor:
+                    currentThemeOption?.dotBorder || "transparent",
+                }}
+              />
+              <span className="text-[10px] font-bold tracking-wider uppercase">
+                {currentThemeOption?.name || uiTheme}
+              </span>
+              <span className="text-[8px] opacity-60 ml-0.5">▼</span>
+            </button>
+
+            {/* Dropdown Menu Popup */}
+            {isThemeDropdownOpen && (
+              <div className="theme-dropdown-menu absolute right-0 top-full mt-1.5 w-[160px] bg-[var(--bg-panel)] border border-[var(--border-base)] rounded shadow-2xl z-[100] py-1.5 backdrop-blur-md">
+                <div className="px-3 py-1 flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-base)] border-b border-[var(--border-base)] pb-1.5 mb-1 select-none">
+                  <span className="text-xs">🎨</span>
+                  <span>{lang === "ja" ? "テーマ切り替え" : "THEME SELECT"}</span>
+                </div>
+                <div className="flex flex-col gap-0.5 px-1 max-h-[340px] overflow-y-auto scroller-hidden">
+                  {UI_THEMES.map((theme) => {
+                    const isSelected =
+                      uiTheme === theme.id ||
+                      (theme.id === "MONO" && uiTheme === "DARK");
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        onClick={() => {
+                          setUiTheme(theme.id);
+                          setIsThemeDropdownOpen(false);
+                        }}
+                        className={`w-full px-2.5 py-1.5 flex items-center justify-between text-left rounded text-[10px] font-bold tracking-wider transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                            : "text-[var(--text-bright)] hover:bg-[var(--bg-btn)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shrink-0 border flex items-center justify-center"
+                            style={{
+                              backgroundColor: theme.dotBg || theme.dotColor,
+                              borderColor: theme.dotBorder || "transparent",
+                            }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  theme.dotInner || theme.dotColor,
+                              }}
+                            />
+                          </span>
+                          <span className="uppercase">{theme.name}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[var(--accent)] text-[11px] font-bold">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* LANGUAGE TOGGLE [ EN | JP ] */}
           <div className="flex items-center border border-[var(--border-base)] rounded overflow-hidden shrink-0">
             <button
               onClick={() => setLang("en")}
-              className={`px-3 py-1 text-[10px] whitespace-nowrap font-bold ${lang === "en" ? "bg-white text-black" : "text-[#4e5d74] hover:text-[var(--text-bright)]"} transition-colors`}
+              className={`px-3 py-1 text-[10px] whitespace-nowrap font-bold ${lang === "en" ? "bg-[var(--text-bright)] text-[var(--bg-main)]" : "text-[var(--text-base)] hover:text-[var(--text-bright)] hover:bg-[var(--bg-btn)]"} transition-colors`}
             >
               EN
             </button>
             <button
               onClick={() => setLang("ja")}
-              className={`px-3 py-1 text-[10px] whitespace-nowrap font-bold ${lang === "ja" ? "bg-white text-black" : "text-[#4e5d74] hover:text-[var(--text-bright)]"} transition-colors`}
+              className={`px-3 py-1 text-[10px] whitespace-nowrap font-bold ${lang === "ja" ? "bg-[var(--text-bright)] text-[var(--bg-main)]" : "text-[var(--text-base)] hover:text-[var(--text-bright)] hover:bg-[var(--bg-btn)]"} transition-colors`}
             >
               JP
             </button>
@@ -3738,28 +3892,28 @@ const App: React.FC = () => {
           <div className="flex shrink-0 px-4 pt-3 pb-0 gap-2">
             <button
               onClick={() => setActiveTab("objects")}
-              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "objects" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn mode-nav-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "objects" ? "ss-btn-active" : ""}`}
               title={t("tabObjectsLabel")}
             >
               <FileText className="w-5 h-5" />
             </button>
             <button
               onClick={() => setActiveTab("image")}
-              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "image" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn mode-nav-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "image" ? "ss-btn-active" : ""}`}
               title={lang === "ja" ? "写真・画像" : "Images / Photos"}
             >
               <ImageIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => setActiveTab("style")}
-              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "style" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn mode-nav-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "style" ? "ss-btn-active" : ""}`}
               title={t("tabLayoutColorLabel")}
             >
               <Palette className="w-5 h-5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setActiveTab("mark"); }}
-              className={`flex-1 ss-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "mark" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn mode-nav-btn py-2 flex flex-col items-center justify-center gap-1.5 ${activeTab === "mark" ? "ss-btn-active" : ""}`}
               title={t("tabMarkLabel")}
             >
               <Sparkles className="w-5 h-5" />
@@ -3899,7 +4053,7 @@ const App: React.FC = () => {
                         <div
                           key="layer-mark"
                           {...dropZoneProps}
-                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
+                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${!collapsedMark ? "is-expanded" : "is-collapsed"} ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
                         >
                           <div
                             onClick={(e) => { e.stopPropagation(); setCollapsedMark(!collapsedMark); }}
@@ -3941,7 +4095,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
                           {!collapsedMark && (
-                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1">
+                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1 accordion-content">
                               <div className="ss-label mb-2 text-[9px] flex items-center mt-3">
                                 <span>EDGE WIDTH</span>
                                 <span className="ml-auto opacity-70 mr-2">
@@ -4034,7 +4188,7 @@ const App: React.FC = () => {
                         <div
                           key="layer-text-main"
                           {...dropZoneProps}
-                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
+                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${!collapsedMain ? "is-expanded" : "is-collapsed"} ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
                         >
                           <div
                             onClick={(e) => { e.stopPropagation(); setCollapsedMain(!collapsedMain); }}
@@ -4072,7 +4226,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
                           {!collapsedMain && (
-                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1">
+                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1 accordion-content">
                               <textarea
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
@@ -4196,7 +4350,7 @@ const App: React.FC = () => {
                         <div
                           key="layer-text-sub"
                           {...dropZoneProps}
-                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
+                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${!collapsedSub ? "is-expanded" : "is-collapsed"} ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
                         >
                           <div
                             onClick={(e) => { e.stopPropagation(); setCollapsedSub(!collapsedSub); }}
@@ -4234,7 +4388,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
                           {!collapsedSub && (
-                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1">
+                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1 accordion-content">
                               <input
                                 type="text"
                                 value={subPrompt}
@@ -4360,7 +4514,7 @@ const App: React.FC = () => {
                         <div
                           key={`layer-${photo.id}`}
                           {...dropZoneProps}
-                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
+                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${!isCollapsed ? "is-expanded" : "is-collapsed"} ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
                         >
                           <div
                             onClick={() =>
@@ -4428,7 +4582,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
                           {!isCollapsed && (
-                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1">
+                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1 accordion-content">
                               <div className="flex items-center gap-3 mb-3 p-1.5 bg-black/30 rounded border border-[var(--border-base)]/50">
                                 <img
                                   src={photo.src}
@@ -4562,11 +4716,12 @@ const App: React.FC = () => {
                       const ornament = ornaments[idx];
                       if (!ornament) return null;
                       const isVisible = ornament.visible !== false;
+                      const isCollapsedOrnament = !!collapsedOrnaments[idx];
                       return (
                         <div
                           key={`ornament-${idx}`}
                           {...dropZoneProps}
-                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
+                          className={`ss-panel animate-fade-in py-2 px-3 transition-all ${!isCollapsedOrnament ? "is-expanded" : "is-collapsed"} ${isDragging ? "opacity-30 border-dashed" : ""} ${isDragOver ? "border-[var(--active-color)] bg-[var(--active-color)]/10" : ""}`}
                         >
                           <div
                             onClick={() => {
@@ -4576,7 +4731,7 @@ const App: React.FC = () => {
                                 return next;
                               });
                             }}
-                            className={`ss-label flex justify-between items-center w-full cursor-pointer select-none hover:text-[var(--text-bright)] transition-colors ${collapsedOrnaments[idx] ? "mb-0" : "mb-3"}`}
+                            className={`ss-label flex justify-between items-center w-full cursor-pointer select-none hover:text-[var(--text-bright)] transition-colors ${isCollapsedOrnament ? "mb-0" : "mb-3"}`}
                           >
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                               <div
@@ -4604,7 +4759,7 @@ const App: React.FC = () => {
                                 }}
                                 className="w-5 h-6 shrink-0 flex items-center justify-center p-0.5 text-[var(--text-base)] hover:text-[var(--active-color)] opacity-70 hover:opacity-100"
                               >
-                                {collapsedOrnaments[idx] ? "＋" : "−"}
+                                {isCollapsedOrnament ? "＋" : "−"}
                               </button>
                               {upDownControls}
                               <button
@@ -4625,8 +4780,8 @@ const App: React.FC = () => {
                               <div className="w-5 h-6 shrink-0" />
                             </div>
                           </div>
-                          {!collapsedOrnaments[idx] && (
-                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1">
+                          {!isCollapsedOrnament && (
+                            <div onMouseDown={(e) => e.stopPropagation()} className="pt-1 accordion-content">
                               <div className="ss-label mb-2 flex items-center">
                                 <span>{t("labelType")}</span>
                               </div>
@@ -5885,7 +6040,7 @@ const App: React.FC = () => {
           <div className="p-3 border-t border-[var(--border-base)] shrink-0 bg-[var(--bg-panel)] backdrop-blur-md grid grid-cols-2 gap-2">
             <button
               onClick={exportSettings}
-              className={`w-full ss-btn py-2 flex items-center justify-center gap-1 transition-colors !bg-transparent ${uiTheme === "WHITE" ? "!border-black !text-black hover:!bg-black hover:!text-white" : "!border-white !text-white hover:!bg-white hover:!text-black"}`}
+              className="w-full ss-btn py-2 flex items-center justify-center gap-1 transition-colors export-import-btn !border-[var(--text-bright)] !text-[var(--text-bright)] hover:!bg-[var(--text-bright)] hover:!text-[var(--bg-main)]"
             >
               <Download size={12} />{" "}
               <span className="text-[9px] tracking-widest font-bold">
@@ -5893,7 +6048,7 @@ const App: React.FC = () => {
               </span>
             </button>
             <label
-              className={`w-full ss-btn py-2 flex items-center justify-center gap-1 transition-colors cursor-pointer !bg-transparent ${uiTheme === "WHITE" ? "!border-black !text-black hover:!bg-black hover:!text-white" : "!border-white !text-white hover:!bg-white hover:!text-black"}`}
+              className="w-full ss-btn py-2 flex items-center justify-center gap-1 transition-colors cursor-pointer export-import-btn !border-[var(--text-bright)] !text-[var(--text-bright)] hover:!bg-[var(--text-bright)] hover:!text-[var(--bg-main)]"
             >
               <Upload size={12} />{" "}
               <span className="text-[9px] tracking-widest font-bold">
@@ -5923,7 +6078,7 @@ const App: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => switchTab(tab.id)}
-                className={`px-4 py-2 border-r border-[var(--border-base)] flex items-center gap-2 transition-colors ${activeTabId === tab.id ? "bg-[var(--bg-panel)] text-[var(--text-bright)]" : "text-[var(--text-base)] hover:bg-[var(--bg-btn)]"}`}
+                className={`viewport-tab-btn px-4 py-2 border-r border-[var(--border-base)] flex items-center gap-2 transition-colors ${activeTabId === tab.id ? "bg-[var(--bg-panel)] text-[var(--text-bright)] active-tab" : "text-[var(--text-base)] hover:bg-[var(--bg-btn)]"}`}
               >
                 {tab.name}
                 <span
@@ -5939,7 +6094,7 @@ const App: React.FC = () => {
             ))}
             <button
               onClick={addNewTab}
-              className="px-4 py-2 border-r border-[var(--border-base)] text-[var(--text-base)] hover:text-[var(--text-bright)] hover:bg-[var(--bg-btn)] transition-colors flex items-center justify-center"
+              className="viewport-tab-btn px-4 py-2 border-r border-[var(--border-base)] text-[var(--text-base)] hover:text-[var(--text-bright)] hover:bg-[var(--bg-btn)] transition-colors flex items-center justify-center"
             >
               <span className="text-sm leading-none -mt-0.5">+</span>
             </button>
@@ -6264,13 +6419,13 @@ const App: React.FC = () => {
           <div className="flex shrink-0 px-4 pt-4 pb-0 gap-2 border-b border-[var(--border-base)] pb-3 mb-1">
             <button
               onClick={() => setActiveRightTab("3d")}
-              className={`flex-1 ss-btn py-1.5 flex justify-center ${activeRightTab === "3d" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn right-tab-btn py-1.5 flex justify-center ${activeRightTab === "3d" ? "ss-btn-active" : ""}`}
             >
               {t("tab3dLabel")}
             </button>
             <button
               onClick={() => setActiveRightTab("data")}
-              className={`flex-1 ss-btn py-1.5 flex justify-center ${activeRightTab === "data" ? "ss-btn-active" : ""}`}
+              className={`flex-1 ss-btn right-tab-btn py-1.5 flex justify-center ${activeRightTab === "data" ? "ss-btn-active" : ""}`}
             >
               {t("tabDataLabel")}
             </button>
@@ -6378,9 +6533,14 @@ const App: React.FC = () => {
                   onClick={downloadSceneHtml}
                   title="3DモデルをHTMLファイルとしてエクスポートします"
                   disabled={!sceneCode}
-                  className={`w-full mt-4 py-3 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center gap-2 ${sceneCode ? "hover:bg-[var(--bg-btn-active)] text-blue-500 hover:text-blue-400 cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+                  className={`w-full flex-none shrink-0 ss-btn py-2 flex items-center justify-center gap-1 transition-colors export-import-btn ${
+                    sceneCode
+                      ? "!border-[var(--text-bright)] !text-[var(--text-bright)] hover:!bg-[var(--text-bright)] hover:!text-[var(--bg-main)] cursor-pointer"
+                      : "opacity-40 !border-[var(--border-base)] !text-[var(--text-base)] cursor-not-allowed"
+                  }`}
                 >
-                  <Download size={14} /> EXPORT 3D
+                  <Download size={12} />{" "}
+                  <span className="text-[9px] tracking-widest font-bold">EXPORT 3D</span>
                 </button>
               </>
             )}
@@ -6396,24 +6556,26 @@ const App: React.FC = () => {
                     history.map((sn, idx) => (
                       <div
                         key={sn.id + "-" + idx}
-                        className="ss-panel p-1 cursor-pointer hover:border-[#4d5e7a] group bg-black/40 border-black/50 relative"
+                        className="cache-thumb-card p-1.5 cursor-pointer hover:border-[var(--active-color)] group relative rounded transition-all"
                       >
-                        <img
-                          src={sn.image}
-                          onClick={() => loadSnapshot(sn)}
-                          className="w-full h-16 object-cover opacity-60 group-hover:opacity-100 transition-all shadow-lg mix-blend-screen"
-                          alt="Thumb"
-                        />
-                        <div className="p-1 text-[7px] truncate opacity-40 group-hover:opacity-100 mt-1 flex justify-between items-center">
+                        <div className="w-full h-16 bg-[#16161a] rounded flex items-center justify-center overflow-hidden border border-white/5">
+                          <img
+                            src={sn.image}
+                            onClick={() => loadSnapshot(sn)}
+                            className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+                            alt="Thumb"
+                          />
+                        </div>
+                        <div className="p-1 text-[8px] truncate text-[#c4c4cc] group-hover:text-white mt-1 flex justify-between items-center">
                           <span
-                            className="truncate flex-1"
+                            className="truncate flex-1 font-mono"
                             onClick={() => loadSnapshot(sn)}
                             title={sn.title}
                           >
                             {sn.title}
                           </span>
                           <button
-                            className="ml-1 p-1 hover:text-red-500 hover:bg-black/50 rounded flex-shrink-0"
+                            className="ml-1 p-1 text-zinc-400 hover:text-red-400 hover:bg-white/10 rounded flex-shrink-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               setHistory((h) =>
@@ -6440,7 +6602,7 @@ const App: React.FC = () => {
                     onClick={handleSaveToCache}
                     title="現在の3D設定と画像をキャッシュに保存します"
                     disabled={!imageData}
-                    className={`w-full py-2 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center mb-2 ${imageData ? "hover:bg-[var(--bg-btn-active)] text-[var(--active-color)] hover:opacity-80 cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
+                    className={`cache-action-btn w-full py-2 bg-[var(--bg-btn)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] tracking-widest flex items-center justify-center mb-2 ${imageData ? "hover:bg-[var(--bg-btn-active)] text-[var(--active-color)] hover:opacity-80 cursor-pointer" : "opacity-50 text-[var(--text-base)] cursor-not-allowed"}`}
                   >
                     SAVE TO CACHE
                   </button>
@@ -6451,7 +6613,7 @@ const App: React.FC = () => {
                       setHistory([]);
                     }}
                     title="キャッシュと3Dプレビューをリセットします"
-                    className="w-full py-2 mb-2 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-red-500 hover:text-red-400 tracking-widest flex items-center justify-center"
+                    className="cache-action-btn w-full py-2 mb-2 bg-[var(--bg-btn)] hover:bg-[var(--bg-btn-active)] border border-[var(--border-base)] rounded shadow-sm transition-all uppercase font-bold text-[11px] text-red-500 hover:text-red-400 tracking-widest flex items-center justify-center"
                   >
                     CLEAR CACHE
                   </button>

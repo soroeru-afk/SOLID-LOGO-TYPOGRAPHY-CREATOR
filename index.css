@@ -8,6 +8,34 @@
 
 @layer base {
   :root,
+  [data-theme="PEPER"] {
+    --bg-main: #F2EFE6;
+    --bg-panel: #EBE4D5;
+    --bg-input: #FAF8F5;
+    --bg-btn: #E4DCD0;
+    --bg-btn-active: #D95430;
+    --border-base: #D5CCBE;
+    --text-base: #73634F;
+    --text-bright: #2E251E;
+    --accent: #D95430;
+    --active-color: #D95430;
+  }
+
+  [data-theme="LIGHT"],
+  [data-theme="WHITE"] {
+    --bg-main: #e2e8f0;
+    --bg-panel: #ffffff;
+    --bg-input: #f1f5f9;
+    --bg-btn: #ffffff;
+    --bg-btn-active: #64748b;
+    --border-base: #cbd5e1;
+    --text-base: #1e293b;
+    --text-bright: #020617;
+    --accent: #334155;
+    --active-color: #0891b2;
+  }
+
+  [data-theme="MONO"],
   [data-theme="DARK"] {
     --bg-main: #0a0c10;
     --bg-panel: #111418;
@@ -16,9 +44,22 @@
     --bg-btn-active: #2d3640;
     --border-base: #1e252e;
     --text-base: #8a95a3;
-    --text-bright: #e2e8f0;
+    --text-bright: #e2edfc;
     --accent: #4a5568;
     --active-color: #00ffff;
+  }
+
+  [data-theme="OBSIDIAN"] {
+    --bg-main: #09090b;
+    --bg-panel: #121215;
+    --bg-input: #050507;
+    --bg-btn: #18181d;
+    --bg-btn-active: #27272e;
+    --border-base: #27272a;
+    --text-base: #71717a;
+    --text-bright: #fafafa;
+    --accent: #52525b;
+    --active-color: #ffffff;
   }
 
   [data-theme="BLACK"] {
@@ -30,32 +71,21 @@
     --border-base: #1a1a1a;
     --text-base: #6e6e6e;
     --text-bright: #ffffff;
-    --active-color: #00ffff;
+    --accent: #333333;
+    --active-color: #ffffff;
   }
 
   [data-theme="RED"] {
-    --bg-main: #0d0404;
-    --bg-panel: #170707;
-    --bg-input: #080202;
-    --bg-btn: #2e1010;
-    --bg-btn-active: #7a2c25;
-    --border-base: #4a1919;
-    --text-base: #a38282;
-    --text-bright: #ffffff;
-    --active-color: #00ffff;
-  }
-
-  [data-theme="WHITE"] {
-    --bg-main: #e2e8f0;
-    --bg-panel: #ffffff;
-    --bg-input: #f1f5f9;
-    --bg-btn: #f8fafc;
-    --bg-btn-active: #64748b;
-    --border-base: #e2e8f0;
-    --text-base: #1e293b;
-    --text-bright: #020617;
-    --accent: #334155;
-    --active-color: #0891b2;
+    --bg-main: #0e0607;
+    --bg-panel: #180b0d;
+    --bg-input: #0a0405;
+    --bg-btn: #250e12;
+    --bg-btn-active: #8a252c;
+    --border-base: #2e1418;
+    --text-base: #8c6f75;
+    --text-bright: #f4e8ea;
+    --accent: #8a252c;
+    --active-color: #a32e37;
   }
 
   body {
@@ -168,6 +198,146 @@
   .ss-select option {
     background-color: var(--bg-main, #0a0c10);
     color: var(--text-bright, #ffffff);
+  }
+
+
+  /* PEPER theme specific overrides */
+  [data-theme="PEPER"] .ss-btn-active {
+    background-color: #D95430 !important;
+    color: #ffffff !important;
+    border-color: #D95430 !important;
+  }
+
+  [data-theme="PEPER"] .ss-btn-primary {
+    background-color: #D95430 !important;
+    color: #ffffff !important;
+    border-color: #D95430 !important;
+  }
+
+  [data-theme="PEPER"] .ss-btn-primary:hover {
+    background-color: #bf4524 !important;
+  }
+
+  [data-theme="PEPER"] .ss-tab-active {
+    background-color: #FAF8F5 !important;
+    color: #D95430 !important;
+    border-color: #D95430 !important;
+  }
+
+  [data-theme="PEPER"] .ss-slider {
+    background-color: #D5CCBE;
+    accent-color: #D95430;
+  }
+
+  [data-theme="PEPER"] .ss-slider::-webkit-slider-thumb {
+    background: #D95430;
+    border-color: #EBE4D5;
+  }
+
+  /* PEPER theme: 開いたカード・展開領域、および設定パネル、下部ボタンを白(#ffffff)に */
+  [data-theme="PEPER"] .is-expanded {
+    background-color: #ffffff !important;
+    border-color: #D5CCBE !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="PEPER"] .accordion-content {
+    background-color: #ffffff !important;
+  }
+
+  /* PEPER theme: カード・展開領域・折りたたみカード・設定パネル・ボタン類を白(#ffffff)に */
+  [data-theme="PEPER"] .is-expanded,
+  [data-theme="PEPER"] .is-collapsed,
+  [data-theme="PEPER"] .accordion-content {
+    background-color: #ffffff !important;
+    border-color: #D5CCBE !important;
+  }
+
+  [data-theme="PEPER"] .is-expanded {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="PEPER"] aside .ss-panel {
+    background-color: #ffffff !important;
+    border-color: #D5CCBE !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  /* PEPER theme: 左上ロゴ枠・テーマドロップダウン・タブ・モードボタン・キャッシュボタンを白に */
+  [data-theme="PEPER"] .header-logo-box,
+  [data-theme="PEPER"] .theme-dropdown-btn,
+  [data-theme="PEPER"] .theme-dropdown-menu,
+  [data-theme="PEPER"] .viewport-tab-btn,
+  [data-theme="PEPER"] .mode-nav-btn:not(.ss-btn-active),
+  [data-theme="PEPER"] .right-tab-btn:not(.ss-btn-active),
+  [data-theme="PEPER"] .cache-action-btn,
+  [data-theme="PEPER"] .export-import-btn {
+    background-color: #ffffff !important;
+    border-color: #D5CCBE !important;
+    color: #2E251E !important;
+  }
+
+  [data-theme="PEPER"] .export-import-btn:hover,
+  [data-theme="PEPER"] .cache-action-btn:hover:not(:disabled),
+  [data-theme="PEPER"] .mode-nav-btn:hover:not(.ss-btn-active),
+  [data-theme="PEPER"] .right-tab-btn:hover:not(.ss-btn-active),
+  [data-theme="PEPER"] .viewport-tab-btn:hover {
+    background-color: #FAF8F5 !important;
+    border-color: #73634F !important;
+    color: #D95430 !important;
+  }
+
+  [data-theme="PEPER"] .is-expanded .ss-input,
+  [data-theme="PEPER"] .is-expanded .ss-select,
+  [data-theme="PEPER"] aside .ss-panel .ss-input,
+  [data-theme="PEPER"] aside .ss-panel .ss-select {
+    background-color: #FAF8F5 !important;
+    border-color: #D5CCBE !important;
+    color: #2E251E !important;
+  }
+
+  /* キャッシュ履歴サムネイル用カード: どのテーマでも白飛びせず鮮明にプレビュー表示 */
+  .cache-thumb-card {
+    background-color: #1a1a1f !important;
+    border: 1px solid #33333d !important;
+  }
+
+  .cache-thumb-card img {
+    mix-blend-mode: normal !important;
+    background-color: transparent !important;
+  }
+
+  /* RED theme: 落ち着いた工業的ディープボルドー/クリムゾン */
+  [data-theme="RED"] .ss-btn-active {
+    background-color: #8a252c !important;
+    color: #ffffff !important;
+    border-color: #a32e37 !important;
+  }
+
+  [data-theme="RED"] .ss-btn-primary {
+    background-color: #8a252c !important;
+    color: #ffffff !important;
+    border-color: #a32e37 !important;
+  }
+
+  [data-theme="RED"] .ss-btn-primary:hover {
+    background-color: #a32e37 !important;
+  }
+
+  [data-theme="RED"] .ss-tab-active {
+    background-color: #250e12 !important;
+    color: #f4e8ea !important;
+    border-color: #8a252c !important;
+  }
+
+  [data-theme="RED"] .ss-slider {
+    background-color: #2e1418;
+    accent-color: #8a252c;
+  }
+
+  [data-theme="RED"] .ss-slider::-webkit-slider-thumb {
+    background: #a32e37;
+    border-color: #180b0d;
   }
 
   .ss-status-bar {

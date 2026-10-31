@@ -169,24 +169,26 @@
               history.map((sn, idx) => (
                 <div
                   key={sn.id + "-" + idx}
-                  className="ss-panel p-1 cursor-pointer hover:border-[#4d5e7a] group bg-black/40 border-black/50 relative"
+                  className="cache-thumb-card p-1.5 cursor-pointer hover:border-[var(--active-color)] group relative rounded transition-all"
                 >
-                  <img
-                    src={sn.image}
-                    onClick={() => loadSnapshot(sn)}
-                    className="w-full h-16 object-cover opacity-60 group-hover:opacity-100 transition-all shadow-lg mix-blend-screen"
-                    alt="Thumb"
-                  />
-                  <div className="p-1 text-[7px] truncate opacity-40 group-hover:opacity-100 mt-1 flex justify-between items-center">
+                  <div className="w-full h-16 bg-[#16161a] rounded flex items-center justify-center overflow-hidden border border-white/5">
+                    <img
+                      src={sn.image}
+                      onClick={() => loadSnapshot(sn)}
+                      className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+                      alt="Thumb"
+                    />
+                  </div>
+                  <div className="p-1 text-[8px] truncate text-[#c4c4cc] group-hover:text-white mt-1 flex justify-between items-center">
                     <span
-                      className="truncate flex-1"
+                      className="truncate flex-1 font-mono"
                       onClick={() => loadSnapshot(sn)}
                       title={sn.title}
                     >
                       {sn.title}
                     </span>
                     <button
-                      className="ml-1 p-1 hover:text-red-500 hover:bg-black/50 rounded flex-shrink-0"
+                      className="ml-1 p-1 text-zinc-400 hover:text-red-400 hover:bg-white/10 rounded flex-shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         setHistory((h) =>
